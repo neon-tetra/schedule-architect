@@ -1,5 +1,5 @@
 from engine import ScenarioContext, Dispatcher
-from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DeriveRoster
+from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DefineRoster
 from scenarios.default import ( # Messy for now, ideally we go straight from pydantic json to command object
     SKILL_EN_ID, SKILL_EN_NAME,
     SKILL_ES_ID, SKILL_ES_NAME,
@@ -8,7 +8,7 @@ from scenarios.default import ( # Messy for now, ideally we go straight from pyd
     ENV_ES_WEEKLY_VOLUME, ENV_ES_AHT_SECONDS, ENV_ES_AHT_STD_SECONDS,
     ENV_ES_OPERATING_HOURS, ENV_ES_DAY_WEIGHTS, ENV_ES_INTERVAL_WEIGHTS,
     DEFAULT_TARGET_SL, DEFAULT_ANSWER_WITHIN_SECONDS,
-    DEFAULT_SHRINKAGE, DEFAULT_HEADCOUNT_BUFFER,
+    DEFAULT_SHRINKAGE, DEFAULT_ROSTER_ENTRIES,
 )
 
 
@@ -42,8 +42,8 @@ def main():
             answer_within_seconds=DEFAULT_ANSWER_WITHIN_SECONDS,
             shrinkage=DEFAULT_SHRINKAGE,
         ),
-        DeriveRoster(
-            headcount_buffer=DEFAULT_HEADCOUNT_BUFFER,
+        DefineRoster(
+            entries=DEFAULT_ROSTER_ENTRIES,
         ),
     ]
 
