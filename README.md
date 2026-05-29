@@ -1,4 +1,4 @@
-# callflow
+# schedule-architect
 
 A workforce scheduling agent that translates natural language inputs into optimized shift schedules using a structured command engine and CP-SAT constraint programming.
 
