@@ -57,7 +57,7 @@ This reflects how I work in real engineering environments — using AI tools to 
 ## Project Structure
 
 ```
-callflow/
+schedule-architect/
 ├── domain/          # Core entities (Skill, CallEnvironment, ErlangResult, Roster)
 ├── engine/          # Dispatcher, Handler, ScenarioContext, commands
 ├── solver/          # ModelBuilder and CP-SAT integration
