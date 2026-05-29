@@ -1,0 +1,152 @@
+@startuml engine_classes
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+
+skinparam class {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+    FontColor #222222
+    BackgroundColor<<deferred>> #E8E8E8
+    BorderColor<<deferred>> #AAAAAA
+    FontColor<<deferred>> #AAAAAA
+    BorderStyle<<deferred>> dashed
+}
+
+skinparam legend {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+}
+
+legend top right
+  <#FAFAFA,#555555>|                         |
+  | Normal member      | Implemented          |
+  | <color:#999999>~ member</color>  | Deferred / future    |
+  | <<deferred>> class | Placeholder only     |
+endlegend
+
+' ─────────────────────────────────────────
+' PACKAGE: Commands
+' ─────────────────────────────────────────
+package "Commands" <<Rectangle>> {
+
+    class DefineSkill {
+        + type : Literal["define_skill"]
+        + id : str
+        + name : str
+    }
+
+    class DefineCallEnvironment {
+        + type : Literal["define_call_environment"]
+        + skill_id : str
+        + weekly_volume : float
+        + aht_seconds : float
+        + aht_std_seconds : float
+        + operating_hours : tuple[int,int]
+        + day_weights : list[float]
+        + interval_weights : list[float]
+    }
+
+    class DeriveErlang {
+        + type : Literal["derive_erlang"]
+        + target_sl : float
+        + answer_within_seconds : float
+        + shrinkage : float
+        + output_id : str | None
+    }
+
+    class DeriveRoster {
+        + type : Literal["derive_roster"]
+        + erlang_id : str | None
+        + headcount_buffer : float
+        + output_id : str | None
+    }
+
+    class Solve <<deferred>> {
+        <color:#999999>~ type : Literal["solve"]</color>
+        <color:#999999>~ scenario_id : str | None</color>
+    }
+
+    class ReadResult <<deferred>> {
+        <color:#999999>~ type : Literal["read_result"]</color>
+        <color:#999999>~ format : str | None</color>
+    }
+
+    note bottom of DefineSkill
+        ModelCommand = Union[
+          DefineSkill,
+          DefineCallEnvironment,
+          DeriveErlang,
+          DeriveRoster,
+        ]
+    end note
+
+}
+
+' ─────────────────────────────────────────
+' PACKAGE: Engine
+' ─────────────────────────────────────────
+package "Engine" <<Rectangle>> {
+
+    class CommandResult {
+        + success : bool
+        + message : str
+        + data : dict | None
+    }
+
+    class ScenarioContext {
+        + name : str
+        + skills : dict[str, Skill]
+        + call_environments : dict[str, CallEnvironment]
+        + current_erlang : dict[str, ErlangResult]
+        + current_roster : Roster | None
+        + registry : dict[str, ErlangResult | Roster]
+        <color:#999999>~ schedule_types : dict[str, ScheduleType]</color>
+        <color:#999999>~ schedule_result : ScheduleResult | None</color>
+        --
+        <color:#999999>~ is_ready_to_solve() : bool</color>
+    }
+
+    class Dispatcher {
+        - _handler : Handler
+        - _dispatch_table : dict[str, Callable]
+        --
+        + dispatch(cmd: ModelCommand) : CommandResult
+    }
+
+    class Handler {
+        - _context : ScenarioContext
+        - _model_builder : ModelBuilder
+        --
+        + handle_define_skill(cmd: DefineSkill) : CommandResult
+        + handle_define_environment(cmd: DefineCallEnvironment) : CommandResult
+        + handle_derive_erlang(cmd: DeriveErlang) : CommandResult
+        + handle_derive_roster(cmd: DeriveRoster) : CommandResult
+        <color:#999999>~ handle_solve(cmd: Solve) : CommandResult</color>
+        <color:#999999>~ handle_read_result(cmd: ReadResult) : CommandResult</color>
+        <color:#999999>~ handle_read_context(cmd: ReadContext) : CommandResult</color>
+    }
+
+    class ModelBuilder <<deferred>> {
+        <color:#999999>~ build_and_solve(ctx: ScenarioContext) : ScheduleResult</color>
+        <color:#999999>~ add_variable(cmd) : None</color>
+        <color:#999999>~ add_constraint(cmd) : None</color>
+        <color:#999999>~ set_objective(cmd) : None</color>
+    }
+
+}
+
+' ─────────────────────────────────────────
+' RELATIONSHIPS
+' ─────────────────────────────────────────
+Dispatcher "1" *-- "1" Handler : owns
+Handler "1" --> "1" ScenarioContext : reads/writes
+Handler "1" --> "1" ModelBuilder : delegates solve to
+Dispatcher ..> CommandResult : returns
+Handler ..> CommandResult : returns
+Handler ..> DefineSkill : accepts
+Handler ..> DefineCallEnvironment : accepts
+Handler ..> DeriveErlang : accepts
+Handler ..> DeriveRoster : accepts
+
+@enduml

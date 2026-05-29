@@ -1,0 +1,70 @@
+@startuml architecture_component
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+
+skinparam component {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+    FontColor #222222
+    BackgroundColor<<deferred>> #E8E8E8
+    BorderColor<<deferred>> #AAAAAA
+    FontColor<<deferred>> #AAAAAA
+    BorderStyle<<deferred>> dashed
+}
+
+skinparam legend {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+}
+
+legend top right
+  <#FAFAFA,#555555>|                          |
+  | Solid component  | Implemented            |
+  | <<deferred>>     | Planned / future       |
+endlegend
+
+' ─────────────────────────────────────────
+' LAYERS
+' ─────────────────────────────────────────
+
+package "Caller" <<Rectangle>> {
+    [LLM / Agent] as LLM
+}
+
+package "Engine" <<Rectangle>> {
+    [Dispatcher] as Dispatcher
+    [Handler] as Handler
+    [ScenarioContext] as Context
+}
+
+package "Solver" <<Rectangle>> {
+    [ModelBuilder] <<deferred>> as ModelBuilder
+    [CP-SAT Solver] <<deferred>> as CPSAT
+}
+
+package "Domain" <<Rectangle>> {
+    [Entities] as Entities
+    note right of Entities
+        Skill, CallEnvironment,
+        ErlangResult, Roster,
+        ScheduleType, ScheduleResult
+    end note
+}
+
+' ─────────────────────────────────────────
+' INTERACTIONS
+' ─────────────────────────────────────────
+
+LLM --> Dispatcher : ModelCommand (JSON)
+Dispatcher --> Handler : typed command
+Handler --> Context : read / write
+Handler --> ModelBuilder : delegate solve
+ModelBuilder --> CPSAT : build and solve
+ModelBuilder --> Context : write ScheduleResult
+Dispatcher --> LLM : CommandResult
+
+Engine ..> Domain : depends on
+Solver ..> Domain : depends on
+
+@enduml

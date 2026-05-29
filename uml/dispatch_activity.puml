@@ -1,0 +1,51 @@
+@startuml engine_activity
+
+skinparam backgroundColor #D3D3D3
+
+|Caller|
+|Dispatcher|
+|Handler|
+|ScenarioContext|
+|Model Builder|
+
+|Caller|
+start
+:Submit command object;
+
+|Dispatcher|
+:Receive command;
+:Route to handler;
+
+|Handler|
+if (Define or Derive Cmd?) then (Yes)
+    |ScenarioContext|
+    :Invalidate any existing\nScheduleResult;
+    :Execute command\nagainst context;
+    :Write result to context;
+else if (Solve Cmd?) then (Yes)
+    |ScenarioContext|
+    :Validate context\nis complete;
+    |Model Builder|
+    :Read ScenarioContext;
+    :Build CP-SAT model\nfrom context;
+    :Solve;
+    |ScenarioContext|
+    :Write ScheduleResult\nto context;
+else (Read Cmd)
+    |ScenarioContext|
+    :Read ScheduleResult\nfrom context;
+    :Format result summary;
+endif
+|ScenarioContext|
+:Return outcome to handler;
+
+|Handler|
+:Return outcome;
+
+|Dispatcher|
+:Return outcome to caller;
+
+|Caller|
+stop
+
+@enduml

@@ -1,0 +1,96 @@
+@startuml domain_entities
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+
+skinparam class {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+    FontColor #222222
+    BackgroundColor<<deferred>> #E8E8E8
+    BorderColor<<deferred>> #AAAAAA
+    FontColor<<deferred>> #AAAAAA
+    BorderStyle<<deferred>> dashed
+}
+
+skinparam legend {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+}
+
+' ─────────────────────────────────────────
+' LEGEND
+' ─────────────────────────────────────────
+legend top right
+  <#FAFAFA,#555555>|                         |
+  | Normal member      | Implemented          |
+  | <color:#999999>~ member</color>  | Deferred / future    |
+  | <<deferred>> class | Placeholder only     |
+endlegend
+
+' ─────────────────────────────────────────
+' PACKAGE: Domain
+' ─────────────────────────────────────────
+package "Domain" <<Rectangle>> {
+
+    class Skill {
+        + id : str
+        + name : str
+    }
+
+    class CallEnvironment {
+        + skill_id : str
+        + weekly_volume : float
+        + aht_seconds : float
+        + aht_std_seconds : float
+        + day_weights : list[float]
+        + interval_weights : list[float]
+        ..derived..
+        + operating_hours : tuple[int,int]
+        <color:#999999>~ operating_days : list[int]</color>
+    }
+
+    class ErlangResult {
+        + skill_id : str
+        + curve : list[list[int]]
+        + target_sl : float
+        + shrinkage : float
+        ..derived..
+        + peak_requirement : int
+    }
+
+    class RosterEntry {
+        + skills : list[str]
+        + count : int
+        --
+        + from_string(s) : RosterEntry
+    }
+
+    class Roster {
+        + entries : list[RosterEntry]
+        ..derived..
+        + total_agents : int
+        --
+        + from_string(s) : Roster
+        + summary() : str
+    }
+
+    class ScheduleType <<deferred>> {
+        + id : str
+        + name : str
+        <color:#999999>~ start_slot : int</color>
+        <color:#999999>~ end_slot : int</color>
+        <color:#999999>~ covered_slots : list[int]</color>
+        <color:#999999>~ label() : str</color>
+    }
+
+}
+
+' ─────────────────────────────────────────
+' RELATIONSHIPS
+' ─────────────────────────────────────────
+Roster "1" *-- "1..*" RosterEntry : contains
+CallEnvironment "1" --> "1" Skill : references via skill_id
+ErlangResult "1" --> "1" Skill : references via skill_id
+
+@enduml
