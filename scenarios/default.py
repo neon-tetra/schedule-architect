@@ -52,10 +52,6 @@ DEFAULT_TARGET_SL              = 0.80
 DEFAULT_ANSWER_WITHIN_SECONDS  = 30.0
 DEFAULT_SHRINKAGE               = 0.30
 
-# ── Roster derivation defaults ────────────────────────────────────────────────
-
-DEFAULT_HEADCOUNT_BUFFER = 1.5
-
 # ── Starting Roster (hardcoded for MVP) ───────────────────────────────────────
 # English-only, Spanish-only, and cross-trained agents.
 
