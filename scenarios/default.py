@@ -4,6 +4,7 @@ Hardcoded default scenario configuration for MVP development and testing.
 Two-skill scenario: Inbound English and Inbound Spanish.
 Interval weights cover the operating window (8am–8pm) only, 24 x 30-min slots.
 """
+from domain import RosterEntry
 
 # ── Skills ────────────────────────────────────────────────────────────────────
 
@@ -54,3 +55,12 @@ DEFAULT_SHRINKAGE               = 0.30
 # ── Roster derivation defaults ────────────────────────────────────────────────
 
 DEFAULT_HEADCOUNT_BUFFER = 1.5
+
+# ── Starting Roster (hardcoded for MVP) ───────────────────────────────────────
+# English-only, Spanish-only, and cross-trained agents.
+
+DEFAULT_ROSTER_ENTRIES = [
+    RosterEntry(skills=["inbound_en"],                count=10),
+    RosterEntry(skills=["inbound_es"],                count=5),
+    RosterEntry(skills=["inbound_en", "inbound_es"],  count=3),
+]

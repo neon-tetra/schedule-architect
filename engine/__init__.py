@@ -2,7 +2,7 @@ from engine.commands import (
     DefineSkill,
     DefineCallEnvironment,
     DeriveErlang,
-    DeriveRoster,
+    DefineRoster,
     ModelCommand,
 )
 from engine.result import CommandResult
@@ -13,7 +13,7 @@ __all__ = [
     "DefineSkill",
     "DefineCallEnvironment",
     "DeriveErlang",
-    "DeriveRoster",
+    "DefineRoster",
     "ModelCommand",
     "CommandResult",
     "ScenarioContext",

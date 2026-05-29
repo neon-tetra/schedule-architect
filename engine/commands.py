@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pydantic import BaseModel
 from typing import Union, Literal
+from domain import RosterEntry
 
 
 class DefineSkill(BaseModel):
@@ -34,13 +35,11 @@ class DeriveErlang(BaseModel):
     output_id: str | None = None  # None → write to current_erlang defaults
 
 
-class DeriveRoster(BaseModel):
-    """Derive an agent roster from current Erlang results."""
+class DefineRoster(BaseModel):
+    """Define an agent roster directly."""
 
-    type: Literal["derive_roster"] = "derive_roster"
-    erlang_id: str | None = None      # None → read from current_erlang defaults
-    headcount_buffer: float = 1.5
-    output_id: str | None = None
+    type: Literal["define_roster"] = "define_roster"
+    entries: list[RosterEntry]
 
 
 # Deferred
@@ -61,5 +60,5 @@ ModelCommand = Union[
     DefineSkill,
     DefineCallEnvironment,
     DeriveErlang,
-    DeriveRoster,
+    DefineRoster,
 ]

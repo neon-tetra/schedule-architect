@@ -1,4 +1,4 @@
-from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DeriveRoster
+from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DefineRoster
 from engine.result import CommandResult
 from engine.context import ScenarioContext
 
@@ -30,7 +30,7 @@ class Handler:
     def handle_derive_erlang(self, cmd: DeriveErlang) -> CommandResult:
         raise NotImplementedError
 
-    def handle_derive_roster(self, cmd: DeriveRoster) -> CommandResult:
+    def handle_define_roster(self, cmd: DefineRoster) -> CommandResult:
         raise NotImplementedError
 
     # ── Solve (deferred) ──────────────────────────────────────────────────────
