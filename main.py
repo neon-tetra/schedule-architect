@@ -10,7 +10,7 @@ from scenarios.default import ( # Messy for now, ideally we go straight from pyd
     DEFAULT_TARGET_SL, DEFAULT_ANSWER_WITHIN_SECONDS,
     DEFAULT_SHRINKAGE, DEFAULT_ROSTER_ENTRIES,
 )
-
+from solver.model_builder import ModelBuilder
 
 def main():
     context = ScenarioContext(name="DefaultScenario")
@@ -51,6 +51,15 @@ def main():
         result = dispatcher.dispatch(cmd)
         status = "✓" if result.success else "✗"
         print(f"{status} {cmd.type}: {result.message}")
+    
+    # Build and solve model
+    model_builder = ModelBuilder()
+    schedule_result = model_builder.build_and_solve(context)
+    print(f"Solver status: {schedule_result.status}")
+    print(f"Objective value: {schedule_result.objective}")
+    print("Decision variables:")
+    for var_name, value in schedule_result.vars.items():
+        print(f"  {var_name}: {value}")
 
 
 if __name__ == "__main__":

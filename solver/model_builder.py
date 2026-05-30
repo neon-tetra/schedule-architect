@@ -1,8 +1,8 @@
 from engine.context import ScenarioContext
 from domain import ScheduleResult
-from solver.var_registry import VariableRegistry
+from solver.var_registry import VarRegistry
 
-from ortools.sat.python.cp_model import CpModel, CpSolver, CpSolverStatus
+from ortools.sat.python.cp_model import CpModel, CpSolver, OPTIMAL, FEASIBLE, INFEASIBLE
 from collections import namedtuple
 class ModelBuilder:
     """Builds and solves a CP-SAT scheduling model from a completed ScenarioContext.
@@ -53,7 +53,7 @@ class ModelBuilder:
 
         self._model = CpModel()
         
-        var_registry = VariableRegistry()
+        var_registry = VarRegistry()
 
         # 1. Configuration
 
@@ -136,7 +136,7 @@ class ModelBuilder:
         
         schedule_result = namedtuple("ScheduleResult",["status", "objective", "vars"])
         schedule_result.status = solver.StatusName(status)
-        schedule_result.objective = solver.ObjectiveValue() if status == CpSolverStatus.OPTIMAL else None
+        schedule_result.objective = solver.ObjectiveValue() if status in [OPTIMAL, FEASIBLE] else None
         schedule_result.vars = {var.Name(): solver.Value(var) for var in var_registry.query(type="works")}
                                 
         return schedule_result
