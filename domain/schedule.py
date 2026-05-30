@@ -17,6 +17,16 @@ class ScheduleType(BaseModel):
 
 
 class ScheduleResult(BaseModel):
-    """Output of a solve run. Deferred."""
+    """Summary output of a completed solve run.
+    
+    status reflects the CP-SAT solver outcome.
+    Performance metrics are computed post-solve from actual scheduled agents
+    by re-evaluating ErlangC.service_level() per slot — not stored in the model.
+    """
 
-    pass
+    status: str                          # "OPTIMAL", "FEASIBLE", "INFEASIBLE"
+    total_agent_slots: int               # total scheduled agent-slots across the week
+    solve_time_seconds: float
+    coverage_shortfall_slots: int        # slots where erlang minimum could not be met
+    mean_awt_seconds: float              # demand-weighted average wait time across all slots/skills
+    sl_by_skill: dict[str, float]        # achieved weekly service level per skill_id
