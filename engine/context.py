@@ -24,14 +24,14 @@ class ScenarioContext(BaseModel):
 
     # Deferred
     # schedule_types: dict[str, ScheduleType] = {}
-    # schedule_result: ScheduleResult | None = None
+    schedule_result: ScheduleResult | None = None
 
     class Config:
         arbitrary_types_allowed = True
 
     def invalidate_solve_results(self) -> None:
         """Clear any existing solve output. Called before any Define/Derive command."""
-        pass  # Deferred until ScheduleResult is implemented
+        self.schedule_result = None
 
     # Deferred
     # def is_ready_to_solve(self) -> bool: ...
