@@ -125,12 +125,10 @@ package "Engine" <<Rectangle>> {
         <color:#999999>~ handle_read_context(cmd: ReadContext) : CommandResult</color>
     }
 
-    class ModelBuilder <<deferred>> {
-        <color:#999999>~ build_and_solve(ctx: ScenarioContext) : ScheduleResult</color>
-        <color:#999999>~ add_variable(cmd) : None</color>
-        <color:#999999>~ add_constraint(cmd) : None</color>
-        <color:#999999>~ set_objective(cmd) : None</color>
-    }
+	class ModelBuilder <<deferred>> {
+		<color:#999999>~ build_and_solve(ctx: ScenarioContext) : ScheduleResult</color>
+		<color:#999999>~ internal decomposition : deferred</color>
+	}
 
 }
 

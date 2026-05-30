@@ -1,0 +1,57 @@
+@startuml solver_classes
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+
+skinparam class {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+    FontColor #222222
+    BackgroundColor<<deferred>> #E8E8E8
+    BorderColor<<deferred>> #AAAAAA
+    FontColor<<deferred>> #AAAAAA
+    BorderStyle<<deferred>> dashed
+}
+
+skinparam legend {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+}
+
+legend top right
+  <#FAFAFA,#555555>|                         |
+  | Normal member      | Implemented          |
+  | <color:#999999>~ member</color>  | Deferred / future    |
+  | <<deferred>> class | Placeholder only     |
+endlegend
+
+' ─────────────────────────────────────────
+' PACKAGE: Solver
+' ─────────────────────────────────────────
+package "Solver" <<Rectangle>> {
+
+    class ErlangC {
+        ..stateless class methods..
+        + wait_probability(arrival_rate, aht_seconds, agents) : float
+        + service_level(arrival_rate, aht_seconds, agents, answer_within_seconds) : float
+        + minimum_agents(arrival_rate, aht_seconds, target_service_level, answer_within_seconds) : int
+        + requirements_curve(env, target_service_level, answer_within_seconds, shrinkage) : ErlangResult
+        --
+        note: all methods are @classmethod
+    }
+
+    class ModelBuilder {
+        + build_and_solve(context: ScenarioContext) : ScheduleResult
+        --
+        <color:#999999>~ internal decomposition : deferred</color>
+        note: reads current_erlang + current_roster\nwrites schedule_result
+    }
+
+}
+
+' ─────────────────────────────────────────
+' RELATIONSHIPS
+' ─────────────────────────────────────────
+ModelBuilder ..> ErlangC : does not call\n(reads pre-computed ErlangResult)
+
+@enduml

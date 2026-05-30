@@ -39,6 +39,7 @@ package "Engine" <<Rectangle>> {
 }
 
 package "Solver" <<Rectangle>> {
+    [ErlangC] as ErlangC
     [ModelBuilder] <<deferred>> as ModelBuilder
     [CP-SAT Solver] <<deferred>> as CPSAT
 }
@@ -63,6 +64,7 @@ Handler --> ModelBuilder : delegate solve
 ModelBuilder --> CPSAT : build and solve
 ModelBuilder --> Context : write ScheduleResult
 Dispatcher --> LLM : CommandResult
+Handler --> ErlangC : derive requirements
 
 Engine ..> Domain : depends on
 Solver ..> Domain : depends on
