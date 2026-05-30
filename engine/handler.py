@@ -2,7 +2,7 @@ from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, De
 from engine.result import CommandResult
 from engine.context import ScenarioContext
 from domain import Skill, CallEnvironment, Roster
-
+from solver.erlang import ErlangC
 
 class Handler:
     """Executes commands against a ScenarioContext.
@@ -45,7 +45,22 @@ class Handler:
     # ── Derive ────────────────────────────────────────────────────────────────
 
     def handle_derive_erlang(self, cmd: DeriveErlang) -> CommandResult:
-        raise NotImplementedError
+        if not self._context.call_environments:
+            return CommandResult.fail("No call environments defined.")
+
+        for skill_id, env in self._context.call_environments.items():
+            result = ErlangC.requirements_curve(
+                env=env,
+                target_service_level=cmd.target_sl,
+                answer_within_seconds=cmd.answer_within_seconds,
+                shrinkage=cmd.shrinkage,
+            )
+            self._context.current_erlang[skill_id] = result
+
+        skills_derived = list(self._context.current_erlang.keys())
+        return CommandResult.ok(
+        f"Erlang requirements derived for {len(skills_derived)} skill(s): {', '.join(skills_derived)}."
+    )
 
     # ── Solve (deferred) ──────────────────────────────────────────────────────
 
