@@ -4,6 +4,7 @@ from engine.commands import (
     DefineCallEnvironment,
     DeriveErlang,
     DefineRoster,
+    Solve,
 )
 from engine.result import CommandResult
 from engine.context import ScenarioContext
@@ -23,8 +24,8 @@ class Dispatcher:
             "define_call_environment": self._handler.handle_define_environment,
             "derive_erlang":           self._handler.handle_derive_erlang,
             "define_roster":           self._handler.handle_define_roster,
+            "solve":                   self._handler.handle_solve,
             # Deferred:
-            # "solve":        self._handler.handle_solve,
             # "read_result":  self._handler.handle_read_result,
             # "read_context": self._handler.handle_read_context,
         }

@@ -17,6 +17,8 @@ class ScheduleType(BaseModel):
 
 
 class ScheduleResult(BaseModel):
-    """Output of a solve run. Deferred."""
+    """Summary output of a completed solve run."""
 
-    pass
+    status: str                 # "OPTIMAL", "FEASIBLE", "INFEASIBLE"
+    total_agent_slots: int      # total scheduled agent-slots across the week
+    solve_time_seconds: float

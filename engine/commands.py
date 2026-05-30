@@ -42,11 +42,13 @@ class DefineRoster(BaseModel):
     entries: list[RosterEntry]
 
 
-# Deferred
-# class Solve(BaseModel):
-#     type: Literal["solve"] = "solve"
-#     scenario_id: str | None = None
+class Solve(BaseModel):
+    """Invoke the CP-SAT solver against the current context."""
 
+    type: Literal["solve"] = "solve"
+    scenario_id: str | None = None
+
+# Deferred
 # class ReadResult(BaseModel):
 #     type: Literal["read_result"] = "read_result"
 #     format: str | None = None
@@ -61,4 +63,5 @@ ModelCommand = Union[
     DefineCallEnvironment,
     DeriveErlang,
     DefineRoster,
+    Solve,
 ]

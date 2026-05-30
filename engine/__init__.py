@@ -3,6 +3,7 @@ from engine.commands import (
     DefineCallEnvironment,
     DeriveErlang,
     DefineRoster,
+    Solve,
     ModelCommand,
 )
 from engine.result import CommandResult
@@ -14,6 +15,7 @@ __all__ = [
     "DefineCallEnvironment",
     "DeriveErlang",
     "DefineRoster",
+    "Solve",
     "ModelCommand",
     "CommandResult",
     "ScenarioContext",

@@ -1,8 +1,9 @@
-from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DefineRoster
+from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DefineRoster, Solve
 from engine.result import CommandResult
 from engine.context import ScenarioContext
 from domain import Skill, CallEnvironment, Roster
 from solver.erlang import ErlangC
+from solver.model_builder import ModelBuilder
 
 class Handler:
     """Executes commands against a ScenarioContext.
@@ -16,7 +17,7 @@ class Handler:
 
     def __init__(self, context: ScenarioContext) -> None:
         self._context = context
-        # self._model_builder = ModelBuilder()  # Deferred
+        self._model_builder = ModelBuilder()
 
     # ── Define ────────────────────────────────────────────────────────────────
 
@@ -62,9 +63,17 @@ class Handler:
         f"Erlang requirements derived for {len(skills_derived)} skill(s): {', '.join(skills_derived)}."
     )
 
-    # ── Solve (deferred) ──────────────────────────────────────────────────────
+    # ── Solve ─────────────────────────────────────────────────────────────────
 
-    # def handle_solve(self, cmd: Solve) -> CommandResult: ...
+    def handle_solve(self, cmd: Solve) -> CommandResult:
+        self._context.invalidate_solve_results()
+        result = self._model_builder.build_and_solve(self._context)
+        self._context.schedule_result = result
+        return CommandResult.ok(
+            f"Solve complete — status: {result.status}, "
+            f"total agent-slots: {result.total_agent_slots}, "
+            f"solve time: {result.solve_time_seconds:.3f}s"
+        )
 
     # ── Read (deferred) ───────────────────────────────────────────────────────
 
