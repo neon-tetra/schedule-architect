@@ -19,12 +19,28 @@ class SlotMatrix(BaseModel):
     def sum(self) -> int:
         return sum(self.values.values())
 
-    def collapse_to_hours(self) -> SlotMatrix:
-        """Bucket 30-min slots into hours by slot // 2. Values are summed."""
+    def collapse_to_hours(self, agg: str = "sum") -> "SlotMatrix":
+        """Bucket 30-min slots into hours by slot // 2.
+
+        agg="sum"  — use for shortfall (cumulative gap across the hour)
+        agg="max"  — use for demand and supply (peak headcount within the hour)
+        """
         hourly: dict[tuple[int, int, str], int] = defaultdict(int)
-        for (day, slot, skill), val in self.values.items():
-            hourly[(day, slot // 2, skill)] += val
+
+        if agg == "sum":
+            for (day, slot, skill), val in self.values.items():
+                hourly[(day, slot // 2, skill)] += val
+
+        elif agg == "max":
+            for (day, slot, skill), val in self.values.items():
+                key = (day, slot // 2, skill)
+                hourly[key] = max(hourly[key], val)
+
+        else:
+            raise ValueError(f"Unknown aggregation '{agg}': use 'sum' or 'max'.")
+
         return SlotMatrix(label=self.label, values=dict(hourly))
+
 
     def __sub__(self, other: SlotMatrix) -> SlotMatrix:
         all_keys = self.values.keys() | other.values.keys()
