@@ -38,25 +38,24 @@ package "Domain" <<Rectangle>> {
         + name : str
     }
 
-    class CallEnvironment {
+    class QueueProfile {
         + skill_id : str
         + weekly_volume : float
         + aht_seconds : float
         + aht_std_seconds : float
+        + operating_hours : tuple[int,int]
         + day_weights : list[float]
         + interval_weights : list[float]
-        ..derived..
-        + operating_hours : tuple[int,int]
-        <color:#999999>~ operating_days : list[int]</color>
     }
 
-    class ErlangResult {
-        + skill_id : str
-        + curve : list[list[int]]
-        + target_sl : float
-        + shrinkage : float
-        ..derived..
-        + peak_requirement : int
+    class SlotMatrix {
+        + label : str
+        + values : dict[tuple[int,int,str], int]
+        --
+        + get(day, slot, skill) : int
+        + sum() : int
+        + collapse_to_hours() : SlotMatrix
+        + __sub__(other) : SlotMatrix
     }
 
     class RosterEntry {
@@ -84,13 +83,14 @@ package "Domain" <<Rectangle>> {
         <color:#999999>~ label() : str</color>
     }
 
-    class ScheduleResult {
+    class SolveResult {
         + status : str
-        + total_agent_slots : int
         + solve_time_seconds : float
-        + coverage_shortfall_slots : int
-        + mean_awt_seconds : float
-        + sl_by_skill : dict[str, float]
+        + roster : Roster
+        + queues : dict[str, QueueProfile]
+        + demand : SlotMatrix
+        + supply : SlotMatrix
+        + shortfall : SlotMatrix
     }
 
 }
@@ -99,7 +99,8 @@ package "Domain" <<Rectangle>> {
 ' RELATIONSHIPS
 ' ─────────────────────────────────────────
 Roster "1" *-- "1..*" RosterEntry : contains
-CallEnvironment "1" --> "1" Skill : references via skill_id
-ErlangResult "1" --> "1" Skill : references via skill_id
+QueueProfile --> Skill : references via skill_id
+SolveResult "1" *-- "1" Roster
+SolveResult "1" *-- "3" SlotMatrix : demand / supply / shortfall
 
 @enduml
