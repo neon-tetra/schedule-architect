@@ -69,13 +69,7 @@ class Handler:
         self._context.invalidate_solve_results()
         result = self._model_builder.build_and_solve(self._context)
         self._context.schedule_result = result
-        return CommandResult.ok(
-            f"Solve complete — status: {result.status}, "
-            f"total agent-slots: {result.total_agent_slots}, "
-            f"coverage shortfall: {result.coverage_shortfall_slots} slot(s), "
-            f"mean AWT: {result.mean_awt_seconds:.1f}s, "
-            f"solve time: {result.solve_time_seconds:.3f}s"
-        )
+        return result
 
     # ── Read (deferred) ───────────────────────────────────────────────────────
 
