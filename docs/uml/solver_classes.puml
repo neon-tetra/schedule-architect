@@ -35,7 +35,7 @@ package "Solver" <<Rectangle>> {
         + wait_probability(arrival_rate, aht_seconds, agents) : float
         + service_level(arrival_rate, aht_seconds, agents, answer_within_seconds) : float
         + minimum_agents(arrival_rate, aht_seconds, target_service_level, answer_within_seconds) : int
-        + requirements_curve(env, target_service_level, answer_within_seconds, shrinkage) : SlotMatrix
+        + requirements_curve(env: QueueProfile, target_service_level, answer_within_seconds, shrinkage) : SlotMatrix
         --
         note: all methods are @classmethod
     }
@@ -52,18 +52,36 @@ package "Solver" <<Rectangle>> {
     }
 
     class ModelBuilder {
-        - _model : CpModel
         --
-        + build_and_solve(context: ScenarioContext) : SolveResult
-        note: builds works BoolVars, shortfall IntVars,\ncoverage/shift derived expressions,\nconstraints, objective, then solves
+        + build_and_solve(roster: Roster, queues: dict[str, QueueProfile], demand: SlotMatrix) : SolverOutput
+        note: intentionally monolithic for MVP —\ndynamic constraint building deferred
+    }
+
+    class SolverOutput {
+        + status : str
+        + solve_time_seconds : float
+        + demand : SlotMatrix
+        + supply : SlotMatrix
+        + shortfall : SlotMatrix
     }
 
 }
 
 ' ─────────────────────────────────────────
+' NOTES
+' ─────────────────────────────────────────
+note bottom of ErlangC
+    Called directly by Handler (engine layer)
+    for MVP simplicity. Long-term home is
+    behind a DemandBuilder or similar —
+    deliberate architectural shortcut.
+end note
+
+' ─────────────────────────────────────────
 ' RELATIONSHIPS
 ' ─────────────────────────────────────────
+ModelBuilder "1" *-- "1" VarRegistry : uses internally
+ModelBuilder ..> SolverOutput : returns
 ModelBuilder ..> ErlangC : does not call\n(reads pre-computed demand)
-ModelBuilder "1" *-- "1" VarRegistry : uses
 
 @enduml

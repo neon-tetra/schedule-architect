@@ -36,6 +36,7 @@ package "Engine" <<Rectangle>> {
     [Dispatcher] as Dispatcher
     [Handler] as Handler
     [ScenarioContext] as Context
+    [SolveResult] as SolveResult
     [LLMPresenter] as LLMPresenter
 }
 
@@ -43,14 +44,15 @@ package "Solver" <<Rectangle>> {
     [ErlangC] as ErlangC
     [VarRegistry] as VarRegistry
     [ModelBuilder] as ModelBuilder
+    [SolverOutput] as SolverOutput
     [CP-SAT Solver] as CPSAT
 }
 
 package "Domain" <<Rectangle>> {
     [Entities] as Entities
     note right of Entities
-        Skill, QueueProfile, SlotMatrix,
-        Roster, ScheduleType, SolveResult
+        QueueProfile, SlotMatrix,
+        Roster, RosterEntry
     end note
 }
 
@@ -61,13 +63,14 @@ package "Domain" <<Rectangle>> {
 LLM --> Dispatcher : ModelCommand (JSON)
 Dispatcher --> Handler : typed command
 Handler --> Context : read / write
-Handler --> ModelBuilder : delegate solve
+Handler --> ErlangC : derive demand (MVP shortcut)
+Handler --> ModelBuilder : delegate solve\n(roster, queues, demand)
 ModelBuilder --> CPSAT : build and solve
 ModelBuilder --> VarRegistry : indexes vars
-ModelBuilder --> Context : write SolveResult
+ModelBuilder --> SolverOutput : returns
+Handler --> SolveResult : assembles from SolverOutput\nwrites to context
+Handler --> LLMPresenter : instantiates with SolveResult
 Dispatcher --> LLM : CommandResult
-Handler --> ErlangC : derive requirements
-Handler --> LLMPresenter : format result
 
 Engine ..> Domain : depends on
 Solver ..> Domain : depends on

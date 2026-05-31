@@ -1,6 +1,6 @@
 import math
 from domain.queue_profile import QueueProfile
-#from domain.erlang import ErlangResult
+from domain.slot_matrix import SlotMatrix
 
 
 class ErlangC:
@@ -101,11 +101,11 @@ class ErlangC:
     @classmethod
     def requirements_curve(
         cls,
-        env: CallEnvironment,
+        env: QueueProfile,
         target_service_level: float = 0.80,
         answer_within_seconds: float = 20.0,
         shrinkage: float = 0.0,
-    ) -> ErlangResult:
+    ) -> SlotMatrix:
         """Derive per-interval staffing requirements across a full week.
 
         Iterates over all 7 days and all intervals within the operating window.
@@ -115,13 +115,13 @@ class ErlangC:
         Shrinkage inflates the Erlang minimum to account for non-productive time:
             scheduled = ceil(erlang_minimum / (1 - shrinkage))
 
-        Returns an ErlangResult with a curve of [day, slot, agents_required] rows.
+        Returns a SlotMatrix keyed by (day, slot, skill_id) -> agents_required.
         """
         intervals_per_hour = 2  # 30-minute slots
         start_hour, end_hour = env.operating_hours
         slots_in_window = (end_hour - start_hour) * intervals_per_hour
 
-        curve: list[list[int]] = []
+        values: dict[tuple[int, int, str], int] = {}
 
         for day in range(7):
             for slot_index in range(slots_in_window):
@@ -139,17 +139,13 @@ class ErlangC:
                     answer_within_seconds=answer_within_seconds,
                 )
 
-                if shrinkage > 0:
-                    scheduled = math.ceil(erlang_minimum / (1 - shrinkage))
-                else:
-                    scheduled = erlang_minimum
+                scheduled = (
+                    math.ceil(erlang_minimum / (1 - shrinkage))
+                    if shrinkage > 0
+                    else erlang_minimum
+                )
 
                 absolute_slot = (start_hour * intervals_per_hour) + slot_index
-                curve.append([day, absolute_slot, scheduled])
+                values[(day, absolute_slot, env.skill_id)] = scheduled
 
-        return ErlangResult(
-            skill_id=env.skill_id,
-            target_sl=target_service_level,
-            shrinkage=shrinkage,
-            curve=curve,
-        )
+        return SlotMatrix(label=f"demand_{env.skill_id}", values=values)

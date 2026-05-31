@@ -1,11 +1,10 @@
 from engine.context import ScenarioContext
-from engine.result import SolveResult
+from engine.solve_result import SolveResult
 
 class LLMPresenter:
 
-    def __init__(self, context: ScenarioContext) -> None:
-        self._context = context
-        self._result = context.solve_result
+    def __init__(self, result: SolveResult) -> None:
+        self._result = result
 
     def present(self) -> str:
         if self._result is None:

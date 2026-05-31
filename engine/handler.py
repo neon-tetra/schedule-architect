@@ -1,6 +1,7 @@
 from engine.commands import DefineQueueProfile, DeriveErlang, DefineRoster, Solve, ReadResult
 from engine.command_result import CommandResult
 from engine.context import ScenarioContext
+from engine.presenter import LLMPresenter
 from domain import QueueProfile, Roster, SlotMatrix
 from solver.erlang import ErlangC
 from solver import ModelBuilder
@@ -72,8 +73,7 @@ class Handler:
     def handle_read_result(self, cmd: ReadResult) -> CommandResult:
         if self._context.solve_result is None:
             return CommandResult.fail("No solve result available. Run solve first.")
-        from engine.presenter import LLMPresenter
-        presenter = LLMPresenter(self._context)
+        presenter = LLMPresenter(self._context.solve_result)
         return CommandResult.ok("Result ready.", data={"presentation": presenter.present()})
 
     # Deferred

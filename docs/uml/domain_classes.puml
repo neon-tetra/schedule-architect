@@ -18,9 +18,6 @@ skinparam legend {
     BorderColor #555555
 }
 
-' ─────────────────────────────────────────
-' LEGEND
-' ─────────────────────────────────────────
 legend top right
   <#FAFAFA,#555555>|                         |
   | Normal member      | Implemented          |
@@ -33,13 +30,9 @@ endlegend
 ' ─────────────────────────────────────────
 package "Domain" <<Rectangle>> {
 
-    class Skill {
-        + id : str
-        + name : str
-    }
-
     class QueueProfile {
         + skill_id : str
+        + skill_name : str | None
         + weekly_volume : float
         + aht_seconds : float
         + aht_std_seconds : float
@@ -74,33 +67,11 @@ package "Domain" <<Rectangle>> {
         + summary() : str
     }
 
-    class ScheduleType <<deferred>> {
-        + id : str
-        + name : str
-        <color:#999999>~ start_slot : int</color>
-        <color:#999999>~ end_slot : int</color>
-        <color:#999999>~ covered_slots : list[int]</color>
-        <color:#999999>~ label() : str</color>
-    }
-
-    class SolveResult {
-        + status : str
-        + solve_time_seconds : float
-        + roster : Roster
-        + queues : dict[str, QueueProfile]
-        + demand : SlotMatrix
-        + supply : SlotMatrix
-        + shortfall : SlotMatrix
-    }
-
 }
 
 ' ─────────────────────────────────────────
 ' RELATIONSHIPS
 ' ─────────────────────────────────────────
 Roster "1" *-- "1..*" RosterEntry : contains
-QueueProfile --> Skill : references via skill_id
-SolveResult "1" *-- "1" Roster
-SolveResult "1" *-- "3" SlotMatrix : demand / supply / shortfall
 
 @enduml

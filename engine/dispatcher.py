@@ -19,8 +19,7 @@ class Dispatcher:
     def __init__(self, context: ScenarioContext) -> None:
         self._handler = Handler(context)
         self._dispatch_table: dict[str, callable] = {
-            "define_skill":            self._handler.handle_define_skill,
-            "define_call_environment": self._handler.handle_define_environment,
+            "define_queue_profile":    self._handler.handle_define_queue_profile,
             "derive_erlang":           self._handler.handle_derive_erlang,
             "define_roster":           self._handler.handle_define_roster,
             "solve":                   self._handler.handle_solve,

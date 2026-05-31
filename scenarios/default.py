@@ -150,22 +150,17 @@ DEFAULT_ROSTER_ENTRIES = [
     RosterEntry(skills=["escalations"],                               count=3),
     RosterEntry(skills=["escalations", "account_services"],           count=2),
 ]
+
 # Total: 34 agents. No agent covers photo+bakery or all three specialties.
-from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DefineRoster
+from engine.commands import DefineQueueProfile, DeriveErlang, DefineRoster
 
 DEFAULT_COMMANDS = [
-    DefineSkill(id=SKILL_ACCT_ID,   name=SKILL_ACCT_NAME),
-    DefineSkill(id=SKILL_ONLINE_ID, name=SKILL_ONLINE_NAME),
-    DefineSkill(id=SKILL_PHOTO_ID,  name=SKILL_PHOTO_NAME),
-    DefineSkill(id=SKILL_FLORAL_ID, name=SKILL_FLORAL_NAME),
-    DefineSkill(id=SKILL_BAKERY_ID, name=SKILL_BAKERY_NAME),
-    DefineSkill(id=SKILL_ESC_ID,    name=SKILL_ESC_NAME),
-    DefineCallEnvironment(skill_id=SKILL_ACCT_ID,   weekly_volume=ENV_ACCT_WEEKLY_VOLUME,   aht_seconds=ENV_ACCT_AHT_SECONDS,   aht_std_seconds=ENV_ACCT_AHT_STD_SECONDS,   operating_hours=ENV_ACCT_OPERATING_HOURS,   day_weights=ENV_ACCT_DAY_WEIGHTS,   interval_weights=ENV_ACCT_INTERVAL_WEIGHTS),
-    DefineCallEnvironment(skill_id=SKILL_ONLINE_ID,  weekly_volume=ENV_ONLINE_WEEKLY_VOLUME,  aht_seconds=ENV_ONLINE_AHT_SECONDS,  aht_std_seconds=ENV_ONLINE_AHT_STD_SECONDS,  operating_hours=ENV_ONLINE_OPERATING_HOURS,  day_weights=ENV_ONLINE_DAY_WEIGHTS,  interval_weights=ENV_ONLINE_INTERVAL_WEIGHTS),
-    DefineCallEnvironment(skill_id=SKILL_PHOTO_ID,  weekly_volume=ENV_PHOTO_WEEKLY_VOLUME,  aht_seconds=ENV_PHOTO_AHT_SECONDS,  aht_std_seconds=ENV_PHOTO_AHT_STD_SECONDS,  operating_hours=ENV_PHOTO_OPERATING_HOURS,  day_weights=ENV_PHOTO_DAY_WEIGHTS,  interval_weights=ENV_PHOTO_INTERVAL_WEIGHTS),
-    DefineCallEnvironment(skill_id=SKILL_FLORAL_ID, weekly_volume=ENV_FLORAL_WEEKLY_VOLUME, aht_seconds=ENV_FLORAL_AHT_SECONDS, aht_std_seconds=ENV_FLORAL_AHT_STD_SECONDS, operating_hours=ENV_FLORAL_OPERATING_HOURS, day_weights=ENV_FLORAL_DAY_WEIGHTS, interval_weights=ENV_FLORAL_INTERVAL_WEIGHTS),
-    DefineCallEnvironment(skill_id=SKILL_BAKERY_ID, weekly_volume=ENV_BAKERY_WEEKLY_VOLUME, aht_seconds=ENV_BAKERY_AHT_SECONDS, aht_std_seconds=ENV_BAKERY_AHT_STD_SECONDS, operating_hours=ENV_BAKERY_OPERATING_HOURS, day_weights=ENV_BAKERY_DAY_WEIGHTS, interval_weights=ENV_BAKERY_INTERVAL_WEIGHTS),
-    DefineCallEnvironment(skill_id=SKILL_ESC_ID,    weekly_volume=ENV_ESC_WEEKLY_VOLUME,    aht_seconds=ENV_ESC_AHT_SECONDS,    aht_std_seconds=ENV_ESC_AHT_STD_SECONDS,    operating_hours=ENV_ESC_OPERATING_HOURS,    day_weights=ENV_ESC_DAY_WEIGHTS,    interval_weights=ENV_ESC_INTERVAL_WEIGHTS),
+    DefineQueueProfile(skill_id=SKILL_ACCT_ID,   skill_name=SKILL_ACCT_NAME,   weekly_volume=ENV_ACCT_WEEKLY_VOLUME,   aht_seconds=ENV_ACCT_AHT_SECONDS,   aht_std_seconds=ENV_ACCT_AHT_STD_SECONDS,   operating_hours=ENV_ACCT_OPERATING_HOURS,   day_weights=ENV_ACCT_DAY_WEIGHTS,   interval_weights=ENV_ACCT_INTERVAL_WEIGHTS),
+    DefineQueueProfile(skill_id=SKILL_ONLINE_ID,  skill_name=SKILL_ONLINE_NAME, weekly_volume=ENV_ONLINE_WEEKLY_VOLUME, aht_seconds=ENV_ONLINE_AHT_SECONDS, aht_std_seconds=ENV_ONLINE_AHT_STD_SECONDS, operating_hours=ENV_ONLINE_OPERATING_HOURS, day_weights=ENV_ONLINE_DAY_WEIGHTS, interval_weights=ENV_ONLINE_INTERVAL_WEIGHTS),
+    DefineQueueProfile(skill_id=SKILL_PHOTO_ID,   skill_name=SKILL_PHOTO_NAME,  weekly_volume=ENV_PHOTO_WEEKLY_VOLUME,  aht_seconds=ENV_PHOTO_AHT_SECONDS,  aht_std_seconds=ENV_PHOTO_AHT_STD_SECONDS,  operating_hours=ENV_PHOTO_OPERATING_HOURS,  day_weights=ENV_PHOTO_DAY_WEIGHTS,  interval_weights=ENV_PHOTO_INTERVAL_WEIGHTS),
+    DefineQueueProfile(skill_id=SKILL_FLORAL_ID,  skill_name=SKILL_FLORAL_NAME, weekly_volume=ENV_FLORAL_WEEKLY_VOLUME, aht_seconds=ENV_FLORAL_AHT_SECONDS, aht_std_seconds=ENV_FLORAL_AHT_STD_SECONDS, operating_hours=ENV_FLORAL_OPERATING_HOURS, day_weights=ENV_FLORAL_DAY_WEIGHTS, interval_weights=ENV_FLORAL_INTERVAL_WEIGHTS),
+    DefineQueueProfile(skill_id=SKILL_BAKERY_ID,  skill_name=SKILL_BAKERY_NAME, weekly_volume=ENV_BAKERY_WEEKLY_VOLUME, aht_seconds=ENV_BAKERY_AHT_SECONDS, aht_std_seconds=ENV_BAKERY_AHT_STD_SECONDS, operating_hours=ENV_BAKERY_OPERATING_HOURS, day_weights=ENV_BAKERY_DAY_WEIGHTS, interval_weights=ENV_BAKERY_INTERVAL_WEIGHTS),
+    DefineQueueProfile(skill_id=SKILL_ESC_ID,     skill_name=SKILL_ESC_NAME,    weekly_volume=ENV_ESC_WEEKLY_VOLUME,   aht_seconds=ENV_ESC_AHT_SECONDS,   aht_std_seconds=ENV_ESC_AHT_STD_SECONDS,   operating_hours=ENV_ESC_OPERATING_HOURS,   day_weights=ENV_ESC_DAY_WEIGHTS,   interval_weights=ENV_ESC_INTERVAL_WEIGHTS),
     DeriveErlang(target_sl=DEFAULT_TARGET_SL, answer_within_seconds=DEFAULT_ANSWER_WITHIN_SECONDS, shrinkage=DEFAULT_SHRINKAGE),
     DefineRoster(entries=DEFAULT_ROSTER_ENTRIES),
 ]
