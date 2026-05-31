@@ -14,9 +14,9 @@ The system is organized into four layers, designed before implementation and doc
 
 | Layer | Responsibility |
 |---|---|
-| **Domain** | Core entities — skills, call environments, Erlang results, rosters |
-| **Engine** | Command dispatcher, handler, and scenario context |
-| **Solver** | CP-SAT model builder and optimizer |
+| **Domain** | Core entities — skills, queue profiles, slot matrices, rosters |
+| **Engine** | Command dispatcher, handler, scenario context, and result presenter |
+| **Solver** | Erlang C demand derivation and CP-SAT model builder |
 | **Caller** | LLM agent — submits commands, reads results |
 
 Full design documents: [`/docs`](./docs)
@@ -33,11 +33,12 @@ This reflects how I work in real engineering environments — using AI tools to 
 
 ## MVP Features
 
-- Define skills and call environments via structured commands
+- Define skills and queue profiles via structured commands
 - Derive Erlang C staffing requirements from call volume and SLA targets
-- Derive an initial agent roster from staffing requirements
-- LLM-driven session via a typed command API
-- CP-SAT schedule optimization against derived roster constraints
+- Define an agent roster from skill groups and headcounts
+- CP-SAT schedule optimization minimizing coverage shortfall
+- Solve result bundled as demand / supply / shortfall slot matrices
+- LLM-readable result presentation via `ReadResult` command
 
 ---
 
@@ -46,11 +47,11 @@ This reflects how I work in real engineering environments — using AI tools to 
 | MVP | Planned |
 |---|---|
 | Domain entities | Schedule types and shift templates |
-| Command dispatcher + handler | LLM-driven constraint injection |
-| Erlang C derivation | Multi-scenario session management |
-| Roster derivation | Model variable and objective tuning |
-| CP-SAT solve (hardcoded model) | Full ModelBuilder command vocabulary |
-| Read result command | Simulation and schedule evaluation |
+| Command dispatcher + handler | `AdjustRoster` command |
+| Erlang C derivation | `AdjustTargets` command |
+| CP-SAT solve | Shift start menu (lever) |
+| `ReadResult` + `LLMPresenter` | Multi-scenario session management |
+| Shortfall table presentation | Full simulation and schedule evaluation |
 
 ---
 
@@ -58,9 +59,9 @@ This reflects how I work in real engineering environments — using AI tools to 
 
 ```
 schedule-architect/
-├── domain/          # Core entities (Skill, CallEnvironment, ErlangResult, Roster)
-├── engine/          # Dispatcher, Handler, ScenarioContext, commands
-├── solver/          # ModelBuilder and CP-SAT integration
+├── domain/          # Core entities (Skill, QueueProfile, SlotMatrix, Roster, SolveResult)
+├── engine/          # Dispatcher, Handler, ScenarioContext, commands, LLMPresenter
+├── solver/          # ErlangC, ModelBuilder, VarRegistry
 ├── scenarios/       # Saved scenario configurations
 ├── data/            # Reference data and interval weights
 ├── docs/            # UML architecture documents (PlantUML source)
