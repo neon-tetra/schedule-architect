@@ -84,6 +84,15 @@ package "Domain" <<Rectangle>> {
         <color:#999999>~ label() : str</color>
     }
 
+    class ScheduleResult {
+        + status : str
+        + total_agent_slots : int
+        + solve_time_seconds : float
+        + coverage_shortfall_slots : int
+        + mean_awt_seconds : float
+        + sl_by_skill : dict[str, float]
+    }
+
 }
 
 ' ─────────────────────────────────────────
