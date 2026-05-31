@@ -40,11 +40,22 @@ package "Solver" <<Rectangle>> {
         note: all methods are @classmethod
     }
 
-    class ModelBuilder {
-        + build_and_solve(context: ScenarioContext) : ScheduleResult
+    class VarRegistry {
+        - _entries : list
+        - _index : defaultdict
         --
-        <color:#999999>~ internal decomposition : deferred</color>
-        note: reads current_erlang + current_roster\nwrites schedule_result
+        + add(obj, **tags) : None
+        + query(**tags) : list
+        + query_one(**tags) : any
+        + __len__() : int
+        + __repr__() : str
+    }
+
+    class ModelBuilder {
+        - _model : CpModel
+        --
+        + build_and_solve(context: ScenarioContext) : ScheduleResult
+        note: builds works BoolVars, shortfall IntVars,\ncoverage/shift derived expressions,\nconstraints, objective, then solves
     }
 
 }
@@ -53,5 +64,6 @@ package "Solver" <<Rectangle>> {
 ' RELATIONSHIPS
 ' ─────────────────────────────────────────
 ModelBuilder ..> ErlangC : does not call\n(reads pre-computed ErlangResult)
+ModelBuilder "1" *-- "1" VarRegistry : uses
 
 @enduml

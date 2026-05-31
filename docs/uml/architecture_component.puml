@@ -40,8 +40,9 @@ package "Engine" <<Rectangle>> {
 
 package "Solver" <<Rectangle>> {
     [ErlangC] as ErlangC
-    [ModelBuilder] <<deferred>> as ModelBuilder
-    [CP-SAT Solver] <<deferred>> as CPSAT
+    [VarRegistry] as VarRegistry
+    [ModelBuilder] as ModelBuilder
+    [CP-SAT Solver] as CPSAT
 }
 
 package "Domain" <<Rectangle>> {
@@ -62,6 +63,7 @@ Dispatcher --> Handler : typed command
 Handler --> Context : read / write
 Handler --> ModelBuilder : delegate solve
 ModelBuilder --> CPSAT : build and solve
+ModelBuilder --> VarRegistry : indexes vars
 ModelBuilder --> Context : write ScheduleResult
 Dispatcher --> LLM : CommandResult
 Handler --> ErlangC : derive requirements

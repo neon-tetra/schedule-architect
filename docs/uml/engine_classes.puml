@@ -100,7 +100,7 @@ package "Engine" <<Rectangle>> {
         + current_roster : Roster | None
         + registry : dict[str, ErlangResult | Roster]
         <color:#999999>~ schedule_types : dict[str, ScheduleType]</color>
-        <color:#999999>~ schedule_result : ScheduleResult | None</color>
+        + schedule_result : ScheduleResult | None
         --
         <color:#999999>~ is_ready_to_solve() : bool</color>
     }
@@ -125,9 +125,10 @@ package "Engine" <<Rectangle>> {
         <color:#999999>~ handle_read_context(cmd: ReadContext) : CommandResult</color>
     }
 
-	class ModelBuilder <<deferred>> {
-		<color:#999999>~ build_and_solve(ctx: ScenarioContext) : ScheduleResult</color>
-		<color:#999999>~ internal decomposition : deferred</color>
+	class ModelBuilder {
+		- _model : CpModel
+		--
+		+ build_and_solve(ctx: ScenarioContext) : ScheduleResult
 	}
 
 }
