@@ -1,3 +1,4 @@
+from unittest import result
 from engine import ScenarioContext, Dispatcher
 from engine.commands import Solve, ReadResult
 from scenarios.default import DEFAULT_COMMANDS
@@ -19,6 +20,7 @@ def main():
     result = dispatcher.dispatch(ReadResult())
     if result.success:
         print(f"\n{result.data['presentation']}")
+        open("output_presentation.txt", "w").write(result.data["presentation"])
     else:
         print(f"\n✗ read_result: {result.message}")
 

@@ -139,9 +139,9 @@ DEFAULT_SHRINKAGE             = 0.30
 # no agent covers all three specialty queues.
 
 DEFAULT_ROSTER_ENTRIES = [
-    RosterEntry(skills=["account_services"],                          count=8),
+    RosterEntry(skills=["account_services"],                          count=5),
     RosterEntry(skills=["online_orders"],                             count=7),
-    RosterEntry(skills=["account_services", "online_orders"],         count=4),
+    RosterEntry(skills=["account_services", "online_orders"],         count=7),
     RosterEntry(skills=["photo"],                                     count=3),
     RosterEntry(skills=["floral"],                                    count=2),
     RosterEntry(skills=["photo", "floral"],                           count=2),

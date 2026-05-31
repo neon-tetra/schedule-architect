@@ -1,5 +1,7 @@
 from engine.solve_result import SolveResult
 
+DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 
 class LLMPresenter:
 
@@ -12,13 +14,18 @@ class LLMPresenter:
         return presentation
 
     def summary_header(self) -> str:
-        #raise NotImplementedError
-        return "Summary Header"
+        total = self._result.shortfall.sum()
+        status = self._result.status
+        skills = None
+        return (
+            f"Solve Status:         {status}\n"
+            f"Total Shortfall:      {total} agent-intervals\n"
+            f"Skills modelled:      {skills}"
+        )
 
     def shortfall_table(self) -> str:
         table_data = self._build_shortfall_table_data()
-        return f"Shortfall Table:\n{table_data}"
-        #raise NotImplementedError  # text rendering to follow
+        return self._render_shortfall_table(table_data)
 
     # ── Data preparation ──────────────────────────────────────────────────
 
@@ -37,9 +44,9 @@ class LLMPresenter:
                 }
             }
         """
-        # Collapse both matrices from 30-min slots to 1-hour buckets
+        
         shortfall_hourly = self._result.shortfall.collapse_to_hours(agg="sum")
-        demand_hourly = self._result.demand.collapse_to_hours(agg="max")
+        demand_hourly = self._result.demand.collapse_to_hours(agg="sum")
 
         # ── TO-BE-REVISITED ───────────────────────────────────────────────
         # Combining and aggregating across multiple SlotMatrices is done
@@ -63,3 +70,67 @@ class LLMPresenter:
                 }
 
         return table_data
+
+    # ── Rendering ─────────────────────────────────────────────────────────
+
+    def _render_shortfall_table(self, table_data: dict) -> str:
+        """Render shortfall table as plain text, one block per skill."""
+        OPERATING_HOURS = range(8, 20)
+        
+        blocks = []
+
+        for skill_id, days in sorted(table_data.items()):
+
+            # Collect all hours present for this skill
+            all_hours = sorted({h for day_data in days.values() for h in day_data if h in OPERATING_HOURS})
+            col_w = 8
+
+            # Header row
+            hour_headers = "".join(f"{h:02d}:00".rjust(col_w) for h in all_hours)
+            header = f"  {'':10}{hour_headers}"
+
+            # Separator
+            sep = "  " + "-" * (10 + col_w * len(all_hours))
+
+            # Day rows
+            day_rows = []
+            col_totals_shortfall = {h: 0 for h in all_hours}
+            col_totals_demand    = {h: 0 for h in all_hours}
+
+            for day in range(7):
+                if day not in days:
+                    continue
+                day_data = days[day]
+                row = f"  {DAY_NAMES[day]:10}"
+                for h in all_hours:
+                    cell = day_data.get(h, {"shortfall": 0, "demand": 0})
+                    sf = cell["shortfall"]
+                    col_totals_shortfall[h] += sf
+                    col_totals_demand[h]    += cell["demand"]
+                    row += str(sf).rjust(col_w)
+                day_rows.append(row)
+
+            # Totals rows
+            total_row_n = f"  {'Total (#)':10}" + "".join(
+                str(col_totals_shortfall[h]).rjust(col_w) for h in all_hours
+            )
+            total_row_pct = f"  {'Total (%)':10}" + "".join(
+                (
+                    f"{round(100 * col_totals_shortfall[h] / col_totals_demand[h])}%"
+                    if col_totals_demand[h] > 0 else "  -"
+                ).rjust(col_w)
+                for h in all_hours
+            )
+
+            block = "\n".join([
+                f"{skill_id}",
+                header,
+                sep,
+                *day_rows,
+                sep,
+                total_row_n,
+                total_row_pct,
+            ])
+            blocks.append(block)
+
+        return "\n\n".join(blocks)
