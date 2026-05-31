@@ -18,9 +18,6 @@ skinparam legend {
     BorderColor #555555
 }
 
-' ─────────────────────────────────────────
-' LEGEND
-' ─────────────────────────────────────────
 legend top right
   <#FAFAFA,#555555>|                         |
   | Normal member      | Implemented          |
@@ -28,9 +25,6 @@ legend top right
   | <<deferred>> class | Placeholder only     |
 endlegend
 
-' ─────────────────────────────────────────
-' PACKAGE: Domain
-' ─────────────────────────────────────────
 package "Domain" <<Rectangle>> {
 
     class Skill {
@@ -38,7 +32,7 @@ package "Domain" <<Rectangle>> {
         + name : str
     }
 
-    class CallEnvironment {
+    class QueueProfile {
         + skill_id : str
         + weekly_volume : float
         + aht_seconds : float
@@ -50,13 +44,14 @@ package "Domain" <<Rectangle>> {
         <color:#999999>~ operating_days : list[int]</color>
     }
 
-    class ErlangResult {
-        + skill_id : str
-        + curve : list[list[int]]
-        + target_sl : float
-        + shrinkage : float
-        ..derived..
-        + peak_requirement : int
+    class SlotMatrix {
+        + label : str
+        + values : dict[tuple[int,int,str], int]
+        --
+        + get(day, slot, skill) : int
+        + sum() : int
+        + collapse_to_hours() : SlotMatrix
+        + __sub__(other: SlotMatrix) : SlotMatrix
     }
 
     class RosterEntry {
@@ -84,22 +79,23 @@ package "Domain" <<Rectangle>> {
         <color:#999999>~ label() : str</color>
     }
 
-    class ScheduleResult {
+    class SolveResult {
         + status : str
-        + total_agent_slots : int
         + solve_time_seconds : float
-        + coverage_shortfall_slots : int
-        + mean_awt_seconds : float
-        + sl_by_skill : dict[str, float]
+        + roster : Roster
+        + queues : dict[str, QueueProfile]
+        + demand : SlotMatrix
+        + supply : SlotMatrix
+        + shortfall : SlotMatrix
     }
 
 }
 
-' ─────────────────────────────────────────
-' RELATIONSHIPS
-' ─────────────────────────────────────────
 Roster "1" *-- "1..*" RosterEntry : contains
-CallEnvironment "1" --> "1" Skill : references via skill_id
-ErlangResult "1" --> "1" Skill : references via skill_id
+QueueProfile "1" --> "1" Skill : references via skill_id
+SolveResult "1" --> "1" Roster
+SolveResult "1" --> "1" SlotMatrix : demand
+SolveResult "1" --> "1" SlotMatrix : supply
+SolveResult "1" --> "1" SlotMatrix : shortfall
 
 @enduml

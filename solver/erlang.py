@@ -1,6 +1,6 @@
 import math
-from domain.call_environment import CallEnvironment
-from domain.erlang import ErlangResult
+from domain.call_environment import QueueProfile
+from domain.erlang import SlotMatrix
 
 
 class ErlangC:
@@ -17,13 +17,13 @@ class ErlangC:
         a   = offered load in Erlangs (arrival_rate / service_rate)
         c   = number of agents
         rho = utilisation per agent (a/c), must be < 1 for a stable queue
-    
+
     """
 
     @classmethod
     def wait_probability(cls, arrival_rate: float, aht_seconds: float, agents: int) -> float:
         """Probability that an arriving call has to wait (the Erlang C formula).
-        
+
         Computed in log space to avoid overflow at high agent counts.
         Returns 1.0 for an unstable queue (utilisation >= 1).
         """
@@ -56,7 +56,7 @@ class ErlangC:
         answer_within_seconds: float,
     ) -> float:
         """Fraction of calls answered within answer_within_seconds.
-        
+
         Returns 1.0 when there are no arrivals.
         """
         if arrival_rate <= 0:
@@ -80,7 +80,7 @@ class ErlangC:
         max_agents: int = 500,
     ) -> int:
         """Minimum agents needed to meet the service level target for a single interval.
-        
+
         Starts just above the offered load (minimum for queue stability)
         and increments until the target is reached.
         Returns 0 when there are no arrivals.
@@ -101,11 +101,11 @@ class ErlangC:
     @classmethod
     def requirements_curve(
         cls,
-        env: CallEnvironment,
+        env: QueueProfile,
         target_service_level: float = 0.80,
         answer_within_seconds: float = 20.0,
         shrinkage: float = 0.0,
-    ) -> ErlangResult:
+    ) -> SlotMatrix:
         """Derive per-interval staffing requirements across a full week.
 
         Iterates over all 7 days and all intervals within the operating window.
@@ -115,13 +115,13 @@ class ErlangC:
         Shrinkage inflates the Erlang minimum to account for non-productive time:
             scheduled = ceil(erlang_minimum / (1 - shrinkage))
 
-        Returns an ErlangResult with a curve of [day, slot, agents_required] rows.
+        Returns SlotMatrix with values keyed by (day, slot, skill_id).
         """
         intervals_per_hour = 2  # 30-minute slots
         start_hour, end_hour = env.operating_hours
         slots_in_window = (end_hour - start_hour) * intervals_per_hour
 
-        curve: list[list[int]] = []
+        values: dict[tuple[int, int, str], int] = {}
 
         for day in range(7):
             for slot_index in range(slots_in_window):
@@ -145,11 +145,6 @@ class ErlangC:
                     scheduled = erlang_minimum
 
                 absolute_slot = (start_hour * intervals_per_hour) + slot_index
-                curve.append([day, absolute_slot, scheduled])
+                values[(day, absolute_slot, env.skill_id)] = scheduled
 
-        return ErlangResult(
-            skill_id=env.skill_id,
-            target_sl=target_service_level,
-            shrinkage=shrinkage,
-            curve=curve,
-        )
+        return SlotMatrix(label="demand", values=values)

@@ -58,7 +58,7 @@ This reflects how I work in real engineering environments — using AI tools to 
 
 ```
 schedule-architect/
-├── domain/          # Core entities (Skill, CallEnvironment, ErlangResult, Roster)
+├── domain/          # Core entities (Skill, QueueProfile, SlotMatrix, Roster)
 ├── engine/          # Dispatcher, Handler, ScenarioContext, commands
 ├── solver/          # ModelBuilder and CP-SAT integration
 ├── scenarios/       # Saved scenario configurations

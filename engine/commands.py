@@ -32,7 +32,7 @@ class DeriveErlang(BaseModel):
     target_sl: float = 0.80
     answer_within_seconds: float = 20.0
     shrinkage: float = 0.20
-    output_id: str | None = None  # None → write to current_erlang defaults
+    output_id: str | None = None  # None → write to current demand defaults
 
 
 class DefineRoster(BaseModel):
@@ -43,17 +43,14 @@ class DefineRoster(BaseModel):
 
 
 class Solve(BaseModel):
-    """Invoke the CP-SAT solver against the current context."""
-
     type: Literal["solve"] = "solve"
-    scenario_id: str | None = None
+
+
+class ReadResult(BaseModel):
+    type: Literal["read_result"] = "read_result"
 
 
 # Deferred
-
-# class ReadResult(BaseModel):
-#     type: Literal["read_result"] = "read_result"
-#     format: str | None = None
 
 # class ReadContext(BaseModel):
 #     type: Literal["read_context"] = "read_context"
@@ -66,4 +63,5 @@ ModelCommand = Union[
     DeriveErlang,
     DefineRoster,
     Solve,
+    ReadResult,
 ]

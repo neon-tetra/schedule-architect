@@ -25,9 +25,6 @@ legend top right
   | <<deferred>> class | Placeholder only     |
 endlegend
 
-' ─────────────────────────────────────────
-' PACKAGE: Solver
-' ─────────────────────────────────────────
 package "Solver" <<Rectangle>> {
 
     class ErlangC {
@@ -35,7 +32,7 @@ package "Solver" <<Rectangle>> {
         + wait_probability(arrival_rate, aht_seconds, agents) : float
         + service_level(arrival_rate, aht_seconds, agents, answer_within_seconds) : float
         + minimum_agents(arrival_rate, aht_seconds, target_service_level, answer_within_seconds) : int
-        + requirements_curve(env, target_service_level, answer_within_seconds, shrinkage) : ErlangResult
+        + requirements_curve(env, target_service_level, answer_within_seconds, shrinkage) : SlotMatrix
         --
         note: all methods are @classmethod
     }
@@ -54,16 +51,13 @@ package "Solver" <<Rectangle>> {
     class ModelBuilder {
         - _model : CpModel
         --
-        + build_and_solve(context: ScenarioContext) : ScheduleResult
+        + build_and_solve(context: ScenarioContext) : SolveResult
         note: builds works BoolVars, shortfall IntVars,\ncoverage/shift derived expressions,\nconstraints, objective, then solves
     }
 
 }
 
-' ─────────────────────────────────────────
-' RELATIONSHIPS
-' ─────────────────────────────────────────
-ModelBuilder ..> ErlangC : does not call\n(reads pre-computed ErlangResult)
+ModelBuilder ..> ErlangC : does not call\n(reads pre-computed demand matrix)
 ModelBuilder "1" *-- "1" VarRegistry : uses
 
 @enduml

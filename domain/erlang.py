@@ -1,17 +1,35 @@
+from __future__ import annotations
+
+from collections import defaultdict
 from pydantic import BaseModel
 
 
-class ErlangResult(BaseModel):
-    """Staffing requirements derived from Erlang C for a single skill."""
+class SlotMatrix(BaseModel):
+    label: str
+    values: dict[tuple[int, int, str], int]  # (day, slot, skill_id) -> int
 
-    skill_id: str
-    target_sl: float
-    shrinkage: float
-    curve: list[list[int]]  # list of [interval_slot, agents_required] pairs
+    def get(self, day: int, slot: int, skill: str) -> int:
+        return self.values.get((day, slot, skill), 0)
 
-    @property
-    def peak_requirement(self) -> int:
-        """Highest agent requirement across all intervals."""
-        if not self.curve:
-            return 0
-        return max(row[1] for row in self.curve)
+    def sum(self) -> int:
+        return sum(self.values.values())
+
+    def collapse_to_hours(self) -> "SlotMatrix":
+        """Bucket 30-min slots into hours by slot // 2. Values are summed."""
+        hourly: dict[tuple[int, int, str], int] = defaultdict(int)
+        for (day, slot, skill), val in self.values.items():
+            hourly[(day, slot // 2, skill)] += val
+        return SlotMatrix(label=self.label, values=dict(hourly))
+
+    def __sub__(self, other: "SlotMatrix") -> "SlotMatrix":
+        all_keys = self.values.keys() | other.values.keys()
+        return SlotMatrix(
+            label=f"{self.label}_minus_{other.label}",
+            values={
+                k: max(0, self.values.get(k, 0) - other.values.get(k, 0))
+                for k in all_keys
+            },
+        )
+
+    class Config:
+        arbitrary_types_allowed = True

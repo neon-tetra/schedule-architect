@@ -4,11 +4,13 @@ from engine.commands import (
     DeriveErlang,
     DefineRoster,
     Solve,
+    ReadResult,
     ModelCommand,
 )
 from engine.result import CommandResult
 from engine.context import ScenarioContext
 from engine.dispatcher import Dispatcher
+from engine.presenter import LLMPresenter
 
 __all__ = [
     "DefineSkill",
@@ -16,8 +18,10 @@ __all__ = [
     "DeriveErlang",
     "DefineRoster",
     "Solve",
+    "ReadResult",
     "ModelCommand",
     "CommandResult",
     "ScenarioContext",
     "Dispatcher",
+    "LLMPresenter",
 ]
