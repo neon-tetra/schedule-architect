@@ -2,7 +2,7 @@ from engine.context import ScenarioContext
 from domain import ScheduleResult
 from solver.var_registry import VarRegistry
 
-from ortools.sat.python.cp_model import CpModel, CpSolver, OPTIMAL, FEASIBLE, INFEASIBLE
+from ortools.sat.python.cp_model import CpModel, CpSolver, LinearExpr, OPTIMAL, FEASIBLE
 from collections import namedtuple
 class ModelBuilder:
     """Builds and solves a CP-SAT scheduling model from a completed ScenarioContext.
@@ -75,10 +75,9 @@ class ModelBuilder:
         skills = skills = list(context.call_environments.keys())
         demand = {}
         for skill_id, erlang_result in context.current_erlang.items():
-            curve = erlang_result.curve
-            for day in DAYS:
-                for slot in SLOTS:
-                    demand[(day, slot, skill_id)] = curve[day][slot]
+            for row in erlang_result.curve:
+                day, slot, required = row
+                demand[(day, slot, skill_id)] = required
         
         # 3. Decision Variables
         for agent in agents:
@@ -87,7 +86,8 @@ class ModelBuilder:
                     var_name = f"{agent['id']}_{day}_{shift}"
                     var = self._model.NewBoolVar(var_name)
                     var_registry.add(var, type="works", agent=agent["id"], day=day, shift=shift)
-        
+
+
         # 4. Derived Expressions
         def slots_in_shift(shift): #helper used for below
             return range(shift * 2, shift * 2 + SHIFT_DURATION_SLOTS)
@@ -101,13 +101,13 @@ class ModelBuilder:
                 for shift in valid_shifts:
                     relevant_vars.extend(var_registry.query(type="works", agent=agent["id"], day=day, shift=shift))
 
-            return self._model.LinearExpr.Sum(relevant_vars) 
+            return LinearExpr.Sum(relevant_vars) 
         
         def shifts_on_day(agent_id, day):
-            return self._model.LinearExpr.Sum(var_registry.query(type="works", agent=agent_id, day=day))
+            return LinearExpr.Sum(var_registry.query(type="works", agent=agent_id, day=day))
         
         def shifts_in_week(agent_id):
-            return self._model.LinearExpr.Sum(var_registry.query(type="works", agent=agent_id))
+            return LinearExpr.Sum(var_registry.query(type="works", agent=agent_id))
         
         # 5. Auxillary Variables
         for day in DAYS:
@@ -116,7 +116,7 @@ class ModelBuilder:
                     var_name = f"shortfall_{skill}_{day}_{slot}"
                     var = self._model.NewIntVar(0, AGENT_UPPER_BOUND, var_name)
                     var_registry.add(var, type="shortfall", day=day, slot=slot, skill=skill)
-                    self._model.Add(var >= demand[(day, slot, skill)] - coverage(day, slot, skill))
+                    self._model.Add(var >= demand.get((day, slot, skill), 0) - coverage(day, slot, skill))
 
         # 6. Constraints
         for agent in agents:
@@ -126,7 +126,7 @@ class ModelBuilder:
         
         # 7. Objective
         shortfall_vars = var_registry.query(type="shortfall")
-        self._model.Minimize(self._model.LinearExpr.Sum(shortfall_vars))
+        self._model.Minimize(LinearExpr.Sum(shortfall_vars))
 
         # Solve
         solver = CpSolver()

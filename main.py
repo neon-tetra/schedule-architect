@@ -55,11 +55,19 @@ def main():
     # Build and solve model
     model_builder = ModelBuilder()
     schedule_result = model_builder.build_and_solve(context)
-    print(f"Solver status: {schedule_result.status}")
-    print(f"Objective value: {schedule_result.objective}")
-    print("Decision variables:")
-    for var_name, value in schedule_result.vars.items():
-        print(f"  {var_name}: {value}")
+
+    print(f"\nSolver status: {schedule_result.status}")
+    print(f"Objective (total shortfall slots): {schedule_result.objective}")
+    import csv
+    # CSV dump of decision variables
+    with open("output_schedule.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["agent", "day", "shift", "works"])
+        for var_name, value in schedule_result.vars.items():
+            parts = var_name.split("_")
+            writer.writerow([*parts[:-2], parts[-2], parts[-1], value])
+
+    print("Schedule written to output_schedule.csv")
 
 
 if __name__ == "__main__":
