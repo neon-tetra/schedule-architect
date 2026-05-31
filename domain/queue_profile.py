@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 
 
-class CallEnvironment(BaseModel):
-    """Defines the call volume and distribution characteristics for a single skill."""
+class QueueProfile(BaseModel):
+    """Defines the call volume and distribution characteristics for a single skill queue."""
 
     skill_id: str
     weekly_volume: float

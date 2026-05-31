@@ -1,15 +1,15 @@
 from domain.skill import Skill
-from domain.call_environment import CallEnvironment
-from domain.erlang import ErlangResult
+from domain.queue_profile import QueueProfile
+from domain.slot_matrix import SlotMatrix
 from domain.roster import RosterEntry, Roster
-from domain.schedule import ScheduleType, ScheduleResult
+from domain.schedule import ScheduleType, SolveResult
 
 __all__ = [
     "Skill",
-    "CallEnvironment",
-    "ErlangResult",
+    "QueueProfile",
+    "SlotMatrix",
     "RosterEntry",
     "Roster",
     "ScheduleType",
-    "ScheduleResult",
+    "SolveResult",
 ]
