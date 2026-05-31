@@ -1,6 +1,5 @@
 from engine.commands import (
-    DefineSkill,
-    DefineCallEnvironment,
+    DefineQueueProfile,
     DeriveErlang,
     DefineRoster,
     Solve,
@@ -9,10 +8,10 @@ from engine.commands import (
 from engine.result import CommandResult
 from engine.context import ScenarioContext
 from engine.dispatcher import Dispatcher
+from engine.solve_result import SolveResult
 
 __all__ = [
-    "DefineSkill",
-    "DefineCallEnvironment",
+    "DefineQueueProfile",
     "DeriveErlang",
     "DefineRoster",
     "Solve",
@@ -20,4 +19,5 @@ __all__ = [
     "CommandResult",
     "ScenarioContext",
     "Dispatcher",
+    "SolveResult",
 ]

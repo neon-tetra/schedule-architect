@@ -4,16 +4,9 @@ from typing import Union, Literal
 from domain import RosterEntry
 
 
-class DefineSkill(BaseModel):
-    """Define a named skill in the scenario context."""
-    type: Literal["define_skill"] = "define_skill"
-    id: str
-    name: str
-
-
-class DefineCallEnvironment(BaseModel):
-    """Define call volume and distribution characteristics for a skill."""
-    type: Literal["define_call_environment"] = "define_call_environment"
+class DefineQueueProfile(BaseModel):
+    """Define call volume and distribution characteristics for a skill/queue."""
+    type: Literal["define_queue_profile"] = "define_queue_profile"
     skill_id: str
     weekly_volume: float
     aht_seconds: float
@@ -53,8 +46,7 @@ class ReadResult(BaseModel):
 
 
 ModelCommand = Union[
-    DefineSkill,
-    DefineCallEnvironment,
+    DefineQueueProfile,
     DeriveErlang,
     DefineRoster,
     Solve,

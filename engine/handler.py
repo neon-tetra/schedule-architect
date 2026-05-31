@@ -1,7 +1,7 @@
-from engine.commands import DefineSkill, DefineCallEnvironment, DeriveErlang, DefineRoster, Solve, ReadResult
+from engine.commands import DefineQueueProfile, DeriveErlang, DefineRoster, Solve, ReadResult
 from engine.result import CommandResult
 from engine.context import ScenarioContext
-from domain import Skill, QueueProfile, Roster, SlotMatrix
+from domain import QueueProfile, Roster, SlotMatrix
 from solver.erlang import ErlangC
 from solver import ModelBuilder
 
@@ -15,12 +15,7 @@ class Handler:
 
     # ── Define ────────────────────────────────────────────────────────────────
 
-    def handle_define_skill(self, cmd: DefineSkill) -> CommandResult:
-        skill = Skill(id=cmd.id, name=cmd.name)
-        self._context.skills[cmd.id] = skill
-        return CommandResult.ok(f"Skill '{cmd.name}' defined.")
-
-    def handle_define_environment(self, cmd: DefineCallEnvironment) -> CommandResult:
+    def handle_define_queue_profile(self, cmd: DefineQueueProfile) -> CommandResult:
         env = QueueProfile(
             skill_id=cmd.skill_id,
             weekly_volume=cmd.weekly_volume,
@@ -63,8 +58,12 @@ class Handler:
     # ── Solve ─────────────────────────────────────────────────────────────────
 
     def handle_solve(self, cmd: Solve) -> CommandResult:
+        roster = self._context.current_roster
+        queues = self._context.queues
+        demand = self._context.demand
+
         self._context.invalidate_solve_results()
-        result = self._model_builder.build_and_solve(self._context)
+        result = self._model_builder.build_and_solve(roster, queues, demand)
         self._context.solve_result = result
         return CommandResult.ok(f"Solve complete. Status: {result.status}. Shortfall slots: {result.shortfall.sum()}.")
 

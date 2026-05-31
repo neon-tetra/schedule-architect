@@ -1,9 +1,18 @@
-from engine.context import ScenarioContext
-from domain import ScheduleResult
+from pydantic import BaseModel
+from domain import Roster, QueueProfile, SlotMatrix
 from solver.var_registry import VarRegistry
 
 from ortools.sat.python.cp_model import CpModel, CpSolver, LinearExpr, OPTIMAL, FEASIBLE
 from collections import namedtuple
+
+
+class SolverOutput(BaseModel): #status, solve_time_seconds, demand, supply, shortfall
+    status: str
+    solve_time_seconds: float
+    demand: SlotMatrix
+    supply: SlotMatrix
+    shortfall: SlotMatrix
+
 class ModelBuilder:
     """Builds and solves a CP-SAT scheduling model from a completed ScenarioContext.
     
@@ -12,7 +21,7 @@ class ModelBuilder:
     Internal structure is deferred until the engine layer above it is complete.
     """
 
-    def build_and_solve(self, context: ScenarioContext) -> ScheduleResult:
+    def build_and_solve(self, roster: Roster, queues: dict[str, QueueProfile], demand: SlotMatrix) -> SolverOutput:
         """Read context, build CP-SAT model, solve, return result."""
 
         """
@@ -23,9 +32,9 @@ class ModelBuilder:
             D  - Days (0-6)
             SL - Slots (0 - 47)
             
-            2. Input: ## All retrieved from scenario context
+            2. Input: ## Important Note ** passed as explicit args for now - needs to be overhauled to be more dynamic after mvp
             A - Agents {expanded from roster}
-            SK - Skills (from call environments)
+            SK - Skills (from queues)
             Demand - demand[d, sl, sk] from erlang curves
 
             3. Decision Variables:
@@ -34,7 +43,7 @@ class ModelBuilder:
             4. Derived Expressions:
             coverage[d, sl, sk] = sum(works[a, d, sh])
                 for all a where a.sk == k
-                for all sh where sl in [sh * 2, sh * 2 + 15]
+                for all sh where sl in [sh * 2, sh * 2 + 17]
             
             shifts_on_day[a, d] = sum(works[a, d, sh]) for all sh
             shifts_in_week[a] = sum(works[a, d, sh]) for all d, sh
@@ -66,18 +75,14 @@ class ModelBuilder:
 
         # 2. Input
         agents = []
-        for entry in context.current_roster.entries:
+        for entry in roster.entries:
             skills = "_".join(entry.skills)
             for i in range(entry.count):
                 agent_id = f"{skills}_{i+1}"
                 agents.append({"id": agent_id, "skills": entry.skills})
         
-        skills = skills = list(context.call_environments.keys())
-        demand = {}
-        for skill_id, erlang_result in context.current_erlang.items():
-            for row in erlang_result.curve:
-                day, slot, required = row
-                demand[(day, slot, skill_id)] = required
+        skills = list(queues.keys())
+        demand_dict = demand.values  # already a dict[(day, slot, skill_id) -> int]
         
         # 3. Decision Variables
         for agent in agents:
@@ -116,7 +121,7 @@ class ModelBuilder:
                     var_name = f"shortfall_{skill}_{day}_{slot}"
                     var = self._model.NewIntVar(0, AGENT_UPPER_BOUND, var_name)
                     var_registry.add(var, type="shortfall", day=day, slot=slot, skill=skill)
-                    self._model.Add(var >= demand.get((day, slot, skill), 0) - coverage(day, slot, skill))
+                    self._model.Add(var >=  demand_dict.get((day, slot, skill), 0) - coverage(day, slot, skill))
 
         # 6. Constraints
         for agent in agents:
@@ -132,13 +137,41 @@ class ModelBuilder:
         solver = CpSolver()
         status = solver.Solve(self._model)
 
-        #schedule result named tuple
-        
-        schedule_result = namedtuple("ScheduleResult",["status", "objective", "vars"])
-        schedule_result.status = solver.StatusName(status)
-        schedule_result.objective = solver.ObjectiveValue() if status in [OPTIMAL, FEASIBLE] else None
-        schedule_result.vars = {var.Name(): solver.Value(var) for var in var_registry.query(type="works")}
-                                
-        return schedule_result
+        # Build supply from solved works vars
+        supply_values = {}
+        for day in DAYS:
+            for slot in SLOTS:
+                for skill in skills:
+                    valid_agents = [a for a in agents if skill in a["skills"]]
+                    valid_shifts = [sh for sh in VALID_SHIFT_STARTS if slot in slots_in_shift(sh)]
+                    total = 0
+                    for agent in valid_agents:
+                        for shift in valid_shifts:
+                            for var in var_registry.query(type="works", agent=agent["id"], day=day, shift=shift):
+                                total += solver.Value(var)
+                    supply_values[(day, slot, skill)] = total
+
+        supply = SlotMatrix(label="supply", values=supply_values)
+
+        # Read shortfall directly from solved IntVars
+        shortfall_values = {}
+        for day in DAYS:
+            for slot in SLOTS:
+                for skill in skills:
+                    vars = var_registry.query(type="shortfall", day=day, slot=slot, skill=skill)
+                    shortfall_values[(day, slot, skill)] = solver.Value(vars[0]) if vars else 0
+
+        shortfall = SlotMatrix(label="shortfall", values=shortfall_values)
+
+        solver_output = SolverOutput(
+            status=solver.StatusName(status),
+            solve_time_seconds=solver.WallTime(),
+            demand=demand,
+            supply=supply,
+            shortfall=shortfall
+        )
+            
+
+        return solver_output
 
         

@@ -5,6 +5,7 @@ class QueueProfile(BaseModel):
     """Defines the call volume and distribution characteristics for a single skill queue."""
 
     skill_id: str
+    skill_name: str | None = None
     weekly_volume: float
     aht_seconds: float
     aht_std_seconds: float

@@ -24,9 +24,9 @@ class Dispatcher:
             "define_call_environment": self._handler.handle_define_environment,
             "derive_erlang":           self._handler.handle_derive_erlang,
             "define_roster":           self._handler.handle_define_roster,
-            "solve":                  self._handler.handle_solve,
-            # Deferred:
-            # "read_result":  self._handler.handle_read_result,
+            "solve":                   self._handler.handle_solve,
+            "read_result":             self._handler.handle_read_result,
+            # Deferred
             # "read_context": self._handler.handle_read_context,
         }
 
