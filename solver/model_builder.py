@@ -38,7 +38,7 @@ class ModelBuilder:
                 agent_id = f"{skills}_{i+1}"
                 agents.append({"id": agent_id, "skills": entry.skills})
 
-        skills = list(context.queues.keys())
+        skill_ids = list(context.queues.keys())
         demand = context.demand.values
 
         # 3. Decision Variables
@@ -73,7 +73,7 @@ class ModelBuilder:
         # 5. Auxillary Variables
         for day in DAYS:
             for slot in SLOTS:
-                for skill in skills:
+                for skill in skill_ids:
                     var_name = f"shortfall_{skill}_{day}_{slot}"
                     var = self._model.NewIntVar(0, AGENT_UPPER_BOUND, var_name)
                     var_registry.add(var, type="shortfall", day=day, slot=slot, skill=skill)
@@ -98,7 +98,7 @@ class ModelBuilder:
         if solved:
             for day in DAYS:
                 for slot in SLOTS:
-                    for skill in skills:
+                    for skill in skill_ids:
                         value = 0
                         valid_agents = [agent for agent in agents if skill in agent["skills"]]
                         valid_shifts = [shift for shift in VALID_SHIFT_STARTS if slot in slots_in_shift(shift)]

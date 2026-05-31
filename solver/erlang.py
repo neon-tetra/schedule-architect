@@ -115,7 +115,7 @@ class ErlangC:
         Shrinkage inflates the Erlang minimum to account for non-productive time:
             scheduled = ceil(erlang_minimum / (1 - shrinkage))
 
-        Returns SlotMatrix with values keyed by (day, slot, skill_id).
+        Returns SlotMatrix(label="demand") keyed by (day, slot, skill_id).
         """
         intervals_per_hour = 2  # 30-minute slots
         start_hour, end_hour = env.operating_hours
