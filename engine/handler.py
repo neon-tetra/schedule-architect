@@ -1,5 +1,5 @@
 from engine.commands import DefineQueueProfile, DeriveErlang, DefineRoster, Solve, ReadResult
-from engine.result import CommandResult
+from engine.command_result import CommandResult
 from engine.context import ScenarioContext
 from domain import QueueProfile, Roster, SlotMatrix
 from solver.erlang import ErlangC

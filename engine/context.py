@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from domain import QueueProfile, SlotMatrix, Roster
-from engine import SolveResult
+from engine.solve_result import SolveResult
 
 
 class ScenarioContext(BaseModel):

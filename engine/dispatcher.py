@@ -1,12 +1,11 @@
 from engine.commands import (
     ModelCommand,
-    DefineSkill,
-    DefineCallEnvironment,
+    DefineQueueProfile,
     DeriveErlang,
     DefineRoster,
     Solve,
 )
-from engine.result import CommandResult
+from engine.command_result import CommandResult
 from engine.context import ScenarioContext
 from engine.handler import Handler
 

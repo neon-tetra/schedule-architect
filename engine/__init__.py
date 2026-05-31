@@ -5,7 +5,7 @@ from engine.commands import (
     Solve,
     ModelCommand,
 )
-from engine.result import CommandResult
+from engine.command_result import CommandResult
 from engine.context import ScenarioContext
 from engine.dispatcher import Dispatcher
 from engine.solve_result import SolveResult

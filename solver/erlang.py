@@ -1,6 +1,6 @@
 import math
-from domain.call_environment import CallEnvironment
-from domain.erlang import ErlangResult
+from domain.queue_profile import QueueProfile
+#from domain.erlang import ErlangResult
 
 
 class ErlangC:
