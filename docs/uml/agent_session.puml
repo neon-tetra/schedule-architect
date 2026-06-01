@@ -1,0 +1,128 @@
+@startuml agent_classes
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+
+skinparam class {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+    FontColor #222222
+    BackgroundColor<<deferred>> #E8E8E8
+    BorderColor<<deferred>> #AAAAAA
+    FontColor<<deferred>> #AAAAAA
+    BorderStyle<<deferred>> dashed
+}
+
+skinparam legend {
+    BackgroundColor #FAFAFA
+    BorderColor #555555
+}
+
+legend top right
+  <#FAFAFA,#555555>|                         |
+  | Normal member      | Implemented          |
+  | <color:#999999>~ member</color>  | Deferred / future    |
+  | <<deferred>> class | Placeholder only     |
+endlegend
+
+' ─────────────────────────────────────────
+' PACKAGE: Agent
+' ─────────────────────────────────────────
+package "Agent" <<Rectangle>> {
+
+    class AgentSession {
+        + session_id : str
+        + model : str
+        - _client : Anthropic
+        - _builder : SystemPromptBuilder
+        - _conversation : ConversationManager
+        - _tools : AgentTools
+        --
+        + run_turn(user_message: str) : str
+        <color:#999999>~ swap_model(model: str) : None</color>
+    }
+
+    class AgentTools {
+        - _dispatcher : Dispatcher
+        --
+        + get_tools() : list[BetaTool]
+        + define_queue_profile(skill_id, weekly_volume, ...) : str
+        + derive_erlang(target_sl, ...) : str
+        + define_roster(entries, ...) : str
+        + solve() : str
+        + read_result() : str
+        ' each method: construct Command,
+        ' dispatch, return json.dumps(result.data)
+        ' each method decorated with @beta_tool
+        ' docstrings are agent-facing descriptions
+    }
+
+    class SystemPromptBuilder {
+        - _static_sections : list[PromptSection]
+        - _dynamic_sections : list[PromptSection]
+        --
+        + add_static_section(heading: str, content: str) : SystemPromptBuilder
+        + add_dynamic_section(heading: str, content: str) : SystemPromptBuilder
+        + build() : str
+        - _build_static_prefix() : str
+        - _build_dynamic_suffix() : str
+    }
+
+    class ConversationManager {
+        - _messages : list[dict]
+        - _max_turns : int
+        --
+        + add_user_message(content: str) : None
+        + add_assistant_message(content: str) : None
+        + get_messages() : list[dict]
+        + trim() : None
+        <color:#999999>~ summarise(client: Anthropic) : None</color>
+    }
+
+    class PromptSection {
+        + heading : str
+        + content : str
+        + dynamic : bool
+    }
+
+    class WorkspaceManager <<deferred>> {
+        ' placeholder - deferred
+        ' ScenarioContext currently lives in Engine
+        ' will migrate here when multi-scenario
+        ' or webapp support is needed
+        <color:#999999>~ get_context(scenario_id: str) : ScenarioContext</color>
+        <color:#999999>~ list_scenarios() : list[str]</color>
+    }
+
+}
+
+' ─────────────────────────────────────────
+' PACKAGE: Engine (existing)
+' ─────────────────────────────────────────
+package "Engine" <<Rectangle>> {
+
+    class Dispatcher {
+        ' existing - no changes
+    }
+
+    class ScenarioContext {
+        ' existing - no changes
+        ' note: candidate to migrate to
+        ' WorkspaceManager post-MVP
+    }
+
+}
+
+' ─────────────────────────────────────────
+' RELATIONSHIPS
+' ─────────────────────────────────────────
+AgentSession "1" *-- "1" SystemPromptBuilder : owns
+AgentSession "1" *-- "1" ConversationManager : owns
+AgentSession "1" *-- "1" AgentTools : owns
+AgentTools "1" --> "1" Dispatcher : uses (ref)
+SystemPromptBuilder "1" *-- "many" PromptSection : owns
+WorkspaceManager ..> ScenarioContext : will own
+AgentSession ..> ScenarioContext : reads for dynamic sections
+Dispatcher --> ScenarioContext : reads/writes (existing)
+
+@enduml
