@@ -66,7 +66,6 @@ class AgentSession:
         self._conversation.add_user_message(user_message)
         self._conversation.trim()
 
-        # Rebuild dynamic sections from current context state
         self._builder.add_dynamic_section(
             "Current Scenario State",
             self._summarise_context(),
@@ -77,55 +76,24 @@ class AgentSession:
         messages = self._conversation.get_messages()
         tools = self._get_tools()
 
-        # Tool loop — runs until Claude stops calling tools
-        while True:
-            response = self._client.beta.messages.create(
-                model=self.model,
-                max_tokens=4096,
-                system=system,
-                messages=messages,
-                tools=tools,
-                betas=["tools-2024-05-16"],
-            )
+        final_message = self._client.beta.messages.tool_runner(
+            model=self.model,
+            max_tokens=4096,
+            system=system,
+            messages=messages,
+            tools=tools,
+        ).until_done()
 
-            if response.stop_reason == "tool_use":
-                # Append assistant message with tool_use blocks
-                messages.append({"role": "assistant", "content": response.content})
-
-                # Execute each tool call and collect results
-                tool_results = []
-                for block in response.content:
-                    if block.type == "tool_use":
-                        result_text = self._dispatch_tool(block.name, block.input)
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result_text,
-                        })
-
-                messages.append({"role": "user", "content": tool_results})
-
-            else:
-                # Final text response
-                final_text = next(
-                    (block.content if hasattr(block, "content") else block.text
-                     for block in response.content
-                     if block.type == "text"),
-                    "",
-                )
-                self._conversation.add_assistant_message(final_text)
-                return final_text
-
+        final_text = next(
+            (block.text for block in final_message.content if block.type == "text"),
+            "",
+        )
+        self._conversation.add_assistant_message(final_text)
+        return final_text
+    
     def _get_tools(self) -> list:
         """Return beta_tool decorated methods from AgentTools."""
         return self._tools.get_tools()
-
-    def _dispatch_tool(self, tool_name: str, tool_input: dict) -> str:
-        """Look up and call the matching AgentTools method by name."""
-        method = getattr(self._tools, tool_name, None)
-        if method is None:
-            return f'{{"error": "Unknown tool: {tool_name}"}}'
-        return method(**tool_input)
 
     def _build_system_blocks(self, prompt: str) -> list[dict]:
         """
