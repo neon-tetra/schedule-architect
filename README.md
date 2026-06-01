@@ -59,13 +59,45 @@ This reflects how I work in real engineering environments — using AI tools to 
 
 ```
 schedule-architect/
-├── domain/          # Core entities (Skill, QueueProfile, SlotMatrix, Roster, SolveResult)
-├── engine/          # Dispatcher, Handler, ScenarioContext, commands, LLMPresenter
-├── solver/          # ErlangC, ModelBuilder, VarRegistry
-├── scenarios/       # Saved scenario configurations
-├── data/            # Reference data and interval weights
-├── docs/            # UML architecture documents (PlantUML source)
-└── README.md
+│
+├── main.py                         # Entry point
+│
+├── domain/                         # Core data models (no dependencies)
+│   ├── queue_profile.py            # QueueProfile
+│   ├── roster.py                   # Roster, RosterEntry
+│   └── slot_matrix.py              # SlotMatrix
+│
+├── engine/                         # Orchestration layer
+│   ├── commands.py                 # ModelCommand union + command types
+│   ├── command_result.py           # CommandResult
+│   ├── context.py                  # ScenarioContext
+│   ├── dispatcher.py               # Dispatcher
+│   ├── handler.py                  # Handler
+│   ├── presenter.py                # LLMPresenter
+│   └── solve_result.py             # SolveResult
+│
+├── solver/                         # Optimisation layer (external dependency)
+│   ├── erlang.py                   # Erlang C staffing calculations
+│   ├── model_builder.py            # CP-SAT model construction + solve
+│   └── var_registry.py             # Solver variable registry
+│
+├── agent/                          # ← new — agent session layer
+│   ├── session.py                  # AgentSession
+│   ├── tools.py                    # AgentTools (@beta_tool wrappers)
+│   ├── prompt_builder.py           # SystemPromptBuilder
+│   └── conversation.py             # ConversationManager
+│
+├── scenarios/
+│   └── default.py                  # Default scenario definition
+│
+└── docs/
+    └── uml/
+        ├── domain_classes.puml
+        ├── engine_classes.puml
+        ├── solver_classes.puml
+        ├── dispatch_activity.puml
+        ├── agent_session.puml      # ← new
+        └── agent_activity.puml     # ← new
 ```
 
 ---
