@@ -13,5 +13,10 @@ class QueueProfile(BaseModel):
     day_weights: list[float]       # 7 values, one per day of week
     interval_weights: list[float]  # one per interval within operating hours
 
+    # Per-agent monthly cost for an agent certified on this skill.
+    # Primary skills carry a base cost; secondary skills carry an incremental cost.
+    # Used to derive total roster cost as a post-solve metric.
+    monthly_cost: float = 0.0
+
     # Deferred
     # operating_days: list[int]

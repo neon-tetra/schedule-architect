@@ -1,6 +1,9 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
+if TYPE_CHECKING:
+    from domain.queue_profile import QueueProfile
 
 class RosterEntry(BaseModel):
     """A single agent archetype — a skill set and a headcount."""
@@ -12,6 +15,10 @@ class RosterEntry(BaseModel):
     def from_string(cls, s: str) -> RosterEntry:
         """Parse a compact string representation e.g. 'billing,collections:4'."""
         raise NotImplementedError
+    
+    def monthly_cost(self, queues: dict[str, QueueProfile]) -> float:
+        return sum(queues[s].monthly_cost for s in self.skills if s in queues)    
+    
 
 
 class Roster(BaseModel):
@@ -32,3 +39,6 @@ class Roster(BaseModel):
     def summary(self) -> str:
         """Return a human-readable summary of the roster."""
         raise NotImplementedError
+    
+    def total_monthly_cost(self, queues: dict[str, QueueProfile]) -> float:
+        return sum(e.monthly_cost(queues) * e.count for e in self.entries)    

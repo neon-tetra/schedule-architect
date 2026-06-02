@@ -3,6 +3,14 @@ Default scenario: Retail customer service center.
 Six skill queues modelled on a big-box retail contact centre.
 Interval weights cover the operating window (8:00–20:00), 24 x 30-min slots (slots 16–39).
 Day weights: 0=Monday … 6=Sunday.
+
+Skill cost model:
+  Primary skills  — account_services: $3,300/agent/month
+                    online_orders:    $3,600/agent/month
+  Secondary skills — photo, floral, bakery: +$500/agent/month
+                     escalations:           +$800/agent/month
+  Each agent may hold exactly one primary skill and at most one secondary skill.
+  Roster cost is derived post-solve from the skill composition of each RosterEntry.
 """
 from domain import RosterEntry
 
@@ -25,6 +33,17 @@ SKILL_BAKERY_NAME = "Bakery"
 
 SKILL_ESC_ID   = "escalations"
 SKILL_ESC_NAME = "Escalations"
+
+# ── Monthly costs per skill ───────────────────────────────────────────────────
+# Primary skills: base monthly cost per agent certified on that skill.
+# Secondary skills: incremental monthly cost added on top of the primary.
+
+SKILL_ACCT_MONTHLY_COST   = 3300.0   # primary
+SKILL_ONLINE_MONTHLY_COST = 3600.0   # primary
+SKILL_PHOTO_MONTHLY_COST  =  500.0   # secondary (incremental)
+SKILL_FLORAL_MONTHLY_COST =  500.0   # secondary (incremental)
+SKILL_BAKERY_MONTHLY_COST =  500.0   # secondary (incremental)
+SKILL_ESC_MONTHLY_COST    =  800.0   # secondary (incremental)
 
 # ── Call Environment: Account Services ───────────────────────────────────────
 # High volume, steady, Monday spike, moderate AHT
@@ -139,28 +158,27 @@ DEFAULT_SHRINKAGE             = 0.30
 # no agent covers all three specialty queues.
 
 DEFAULT_ROSTER_ENTRIES = [
-    RosterEntry(skills=["account_services"],                          count=5),
-    RosterEntry(skills=["online_orders"],                             count=7),
-    RosterEntry(skills=["account_services", "online_orders"],         count=7),
-    RosterEntry(skills=["photo"],                                     count=3),
-    RosterEntry(skills=["floral"],                                    count=2),
-    RosterEntry(skills=["photo", "floral"],                           count=2),
-    RosterEntry(skills=["bakery"],                                    count=2),
-    RosterEntry(skills=["bakery", "floral"],                          count=1),
-    RosterEntry(skills=["escalations"],                               count=3),
-    RosterEntry(skills=["escalations", "account_services"],           count=2),
+    RosterEntry(skills=["account_services", "floral"],                count=3),
+    RosterEntry(skills=["account_services", "bakery"],                count=5),
+    RosterEntry(skills=["account_services", "escalations"],           count=5),
+    RosterEntry(skills=["account_services"],                          count=16),
+
+    RosterEntry(skills=["online_orders", "photo"],                    count=7),
+    RosterEntry(skills=["online_orders", "bakery"],                   count=1),
+    RosterEntry(skills=["online_orders", "escalations"],              count=2),
+    RosterEntry(skills=["online_orders"],                             count=13),
 ]
 
 # Total: 34 agents. No agent covers photo+bakery or all three specialties.
 from engine.commands import DefineQueueProfile, DeriveErlang, DefineRoster
 
 DEFAULT_COMMANDS = [
-    DefineQueueProfile(skill_id=SKILL_ACCT_ID,   skill_name=SKILL_ACCT_NAME,   weekly_volume=ENV_ACCT_WEEKLY_VOLUME,   aht_seconds=ENV_ACCT_AHT_SECONDS,   aht_std_seconds=ENV_ACCT_AHT_STD_SECONDS,   operating_hours=ENV_ACCT_OPERATING_HOURS,   day_weights=ENV_ACCT_DAY_WEIGHTS,   interval_weights=ENV_ACCT_INTERVAL_WEIGHTS),
-    DefineQueueProfile(skill_id=SKILL_ONLINE_ID,  skill_name=SKILL_ONLINE_NAME, weekly_volume=ENV_ONLINE_WEEKLY_VOLUME, aht_seconds=ENV_ONLINE_AHT_SECONDS, aht_std_seconds=ENV_ONLINE_AHT_STD_SECONDS, operating_hours=ENV_ONLINE_OPERATING_HOURS, day_weights=ENV_ONLINE_DAY_WEIGHTS, interval_weights=ENV_ONLINE_INTERVAL_WEIGHTS),
-    DefineQueueProfile(skill_id=SKILL_PHOTO_ID,   skill_name=SKILL_PHOTO_NAME,  weekly_volume=ENV_PHOTO_WEEKLY_VOLUME,  aht_seconds=ENV_PHOTO_AHT_SECONDS,  aht_std_seconds=ENV_PHOTO_AHT_STD_SECONDS,  operating_hours=ENV_PHOTO_OPERATING_HOURS,  day_weights=ENV_PHOTO_DAY_WEIGHTS,  interval_weights=ENV_PHOTO_INTERVAL_WEIGHTS),
-    DefineQueueProfile(skill_id=SKILL_FLORAL_ID,  skill_name=SKILL_FLORAL_NAME, weekly_volume=ENV_FLORAL_WEEKLY_VOLUME, aht_seconds=ENV_FLORAL_AHT_SECONDS, aht_std_seconds=ENV_FLORAL_AHT_STD_SECONDS, operating_hours=ENV_FLORAL_OPERATING_HOURS, day_weights=ENV_FLORAL_DAY_WEIGHTS, interval_weights=ENV_FLORAL_INTERVAL_WEIGHTS),
-    DefineQueueProfile(skill_id=SKILL_BAKERY_ID,  skill_name=SKILL_BAKERY_NAME, weekly_volume=ENV_BAKERY_WEEKLY_VOLUME, aht_seconds=ENV_BAKERY_AHT_SECONDS, aht_std_seconds=ENV_BAKERY_AHT_STD_SECONDS, operating_hours=ENV_BAKERY_OPERATING_HOURS, day_weights=ENV_BAKERY_DAY_WEIGHTS, interval_weights=ENV_BAKERY_INTERVAL_WEIGHTS),
-    DefineQueueProfile(skill_id=SKILL_ESC_ID,     skill_name=SKILL_ESC_NAME,    weekly_volume=ENV_ESC_WEEKLY_VOLUME,   aht_seconds=ENV_ESC_AHT_SECONDS,   aht_std_seconds=ENV_ESC_AHT_STD_SECONDS,   operating_hours=ENV_ESC_OPERATING_HOURS,   day_weights=ENV_ESC_DAY_WEIGHTS,   interval_weights=ENV_ESC_INTERVAL_WEIGHTS),
+    DefineQueueProfile(skill_id=SKILL_ACCT_ID,   skill_name=SKILL_ACCT_NAME,   weekly_volume=ENV_ACCT_WEEKLY_VOLUME,   aht_seconds=ENV_ACCT_AHT_SECONDS,   aht_std_seconds=ENV_ACCT_AHT_STD_SECONDS,   operating_hours=ENV_ACCT_OPERATING_HOURS,   day_weights=ENV_ACCT_DAY_WEIGHTS,   interval_weights=ENV_ACCT_INTERVAL_WEIGHTS,   monthly_cost=SKILL_ACCT_MONTHLY_COST),
+    DefineQueueProfile(skill_id=SKILL_ONLINE_ID,  skill_name=SKILL_ONLINE_NAME, weekly_volume=ENV_ONLINE_WEEKLY_VOLUME, aht_seconds=ENV_ONLINE_AHT_SECONDS, aht_std_seconds=ENV_ONLINE_AHT_STD_SECONDS, operating_hours=ENV_ONLINE_OPERATING_HOURS, day_weights=ENV_ONLINE_DAY_WEIGHTS, interval_weights=ENV_ONLINE_INTERVAL_WEIGHTS, monthly_cost=SKILL_ONLINE_MONTHLY_COST),
+    DefineQueueProfile(skill_id=SKILL_PHOTO_ID,   skill_name=SKILL_PHOTO_NAME,  weekly_volume=ENV_PHOTO_WEEKLY_VOLUME,  aht_seconds=ENV_PHOTO_AHT_SECONDS,  aht_std_seconds=ENV_PHOTO_AHT_STD_SECONDS,  operating_hours=ENV_PHOTO_OPERATING_HOURS,  day_weights=ENV_PHOTO_DAY_WEIGHTS,  interval_weights=ENV_PHOTO_INTERVAL_WEIGHTS,  monthly_cost=SKILL_PHOTO_MONTHLY_COST),
+    DefineQueueProfile(skill_id=SKILL_FLORAL_ID,  skill_name=SKILL_FLORAL_NAME, weekly_volume=ENV_FLORAL_WEEKLY_VOLUME, aht_seconds=ENV_FLORAL_AHT_SECONDS, aht_std_seconds=ENV_FLORAL_AHT_STD_SECONDS, operating_hours=ENV_FLORAL_OPERATING_HOURS, day_weights=ENV_FLORAL_DAY_WEIGHTS, interval_weights=ENV_FLORAL_INTERVAL_WEIGHTS, monthly_cost=SKILL_FLORAL_MONTHLY_COST),
+    DefineQueueProfile(skill_id=SKILL_BAKERY_ID,  skill_name=SKILL_BAKERY_NAME, weekly_volume=ENV_BAKERY_WEEKLY_VOLUME, aht_seconds=ENV_BAKERY_AHT_SECONDS, aht_std_seconds=ENV_BAKERY_AHT_STD_SECONDS, operating_hours=ENV_BAKERY_OPERATING_HOURS, day_weights=ENV_BAKERY_DAY_WEIGHTS, interval_weights=ENV_BAKERY_INTERVAL_WEIGHTS, monthly_cost=SKILL_BAKERY_MONTHLY_COST),
+    DefineQueueProfile(skill_id=SKILL_ESC_ID,     skill_name=SKILL_ESC_NAME,    weekly_volume=ENV_ESC_WEEKLY_VOLUME,   aht_seconds=ENV_ESC_AHT_SECONDS,   aht_std_seconds=ENV_ESC_AHT_STD_SECONDS,   operating_hours=ENV_ESC_OPERATING_HOURS,   day_weights=ENV_ESC_DAY_WEIGHTS,   interval_weights=ENV_ESC_INTERVAL_WEIGHTS,   monthly_cost=SKILL_ESC_MONTHLY_COST),
     DeriveErlang(target_sl=DEFAULT_TARGET_SL, answer_within_seconds=DEFAULT_ANSWER_WITHIN_SECONDS, shrinkage=DEFAULT_SHRINKAGE),
     DefineRoster(entries=DEFAULT_ROSTER_ENTRIES),
 ]
