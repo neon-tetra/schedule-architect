@@ -10,7 +10,7 @@ from engine.commands import (
     ReadResult,
 )
 from domain.roster import RosterEntry
-
+from engine.context import ScenarioContext
 
 class AgentTools:
     """
@@ -23,8 +23,9 @@ class AgentTools:
     Claude uses to decide when to call each tool.
     """
 
-    def __init__(self, dispatcher: Dispatcher):
+    def __init__(self, dispatcher: Dispatcher, context: ScenarioContext):
         self._dispatcher = dispatcher
+        self._context = context
 
     def get_tools(self) -> list:
         """Build and return the list of beta_tool decorated functions exposed to the agent."""
@@ -94,8 +95,32 @@ class AgentTools:
 
         @beta_tool
         def read_result() -> str:
-            """Read and return the current solve result as a formatted presentation including shortfall by skill."""
+            """Read and return the current solve result including shortfall by skill, demand, 
+            and monthly roster cost. Returns full day-by-hour breakdown per skill."""
             result = self._dispatcher.dispatch(ReadResult())
-            return json.dumps({"success": result.success, "message": result.message, **(result.data or {})})
-
-        return [define_queue_profile, derive_erlang, define_roster, solve, read_result]
+            if not result.success:
+                return json.dumps({"success": False, "message": result.message})
+            return json.dumps({"success": True, **(result.data.get("result", {}))})
+        @beta_tool
+        def read_roster() -> str:
+            """Read the current roster composition — agent groups, skill combinations, 
+            headcount per group, per-agent cost, and total monthly cost."""
+            roster = self._context.current_roster
+            queues = self._context.queues
+            if roster is None:
+                return json.dumps({"success": False, "message": "No roster defined."})
+            entries = [
+                {
+                    "skills": e.skills,
+                    "count": e.count,
+                    "monthly_cost_per_agent": e.monthly_cost(queues) if queues else None,
+                }
+                for e in roster.entries
+            ]
+            total_cost = roster.total_monthly_cost(queues) if queues else None
+            return json.dumps({
+                "success": True,
+                "total_agents": roster.total_agents,
+                "monthly_cost": total_cost,
+                "entries": entries,
+            })

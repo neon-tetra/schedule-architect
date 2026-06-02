@@ -14,7 +14,7 @@ class Handler:
         self._context = context
         self._model_builder = ModelBuilder()
 
-    # ── Define ────────────────────────────────────────────────────────────────
+    # ── Define ───────────────────────────────────────────────────────────────
 
     def handle_define_queue_profile(self, cmd: DefineQueueProfile) -> CommandResult:
         env = QueueProfile(
@@ -35,7 +35,7 @@ class Handler:
         self._context.current_roster = roster
         return CommandResult.ok(f"Roster defined: {roster.total_agents} agents across {len(roster.entries)} groups.")
 
-    # ── Derive ────────────────────────────────────────────────────────────────
+    # ── Derive ───────────────────────────────────────────────────────────────
 
     def handle_derive_erlang(self, cmd: DeriveErlang) -> CommandResult:
         if not self._context.queues:
@@ -74,8 +74,25 @@ class Handler:
     def handle_read_result(self, cmd: ReadResult) -> CommandResult:
         if self._context.solve_result is None:
             return CommandResult.fail("No solve result available. Run solve first.")
-        presenter = LLMPresenter(self._context.solve_result)
-        return CommandResult.ok("Result ready.", data={"presentation": presenter.present()})
 
-    # Deferred
-    # def handle_read_context(self, cmd: ReadContext) -> CommandResult: ...
+        presenter = LLMPresenter(self._context.solve_result)
+
+        # Compact JSON for agent reasoning
+        result_json = presenter.present_json()
+
+        # Add roster cost alongside solve metrics
+        if self._context.current_roster and self._context.queues:
+            result_json["monthly_roster_cost"] = self._context.current_roster.total_monthly_cost(
+                self._context.queues
+            )
+
+        # Full ASCII presentation for human display (returned separately)
+        presentation = presenter.present()
+
+        return CommandResult.ok(
+            "Result ready.",
+            data={
+                "result": result_json,        # agent sees this
+                "presentation": presentation, # session layer prints this, doesn't store in history
+            }
+        )

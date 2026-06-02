@@ -41,6 +41,9 @@ class SlotMatrix(BaseModel):
 
         return SlotMatrix(label=self.label, values=dict(hourly))
 
+    def skills(self) -> set[str]:
+        """Return the set of skill_ids present in this matrix."""
+        return {skill_id for (_, _, skill_id) in self.values.keys()}
 
     def __sub__(self, other: SlotMatrix) -> SlotMatrix:
         all_keys = self.values.keys() | other.values.keys()

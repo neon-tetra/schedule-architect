@@ -22,6 +22,7 @@ class AgentSession:
       5. Calls the Anthropic API with tool_use support
       6. Appends assistant response to conversation history
       7. Returns response text to caller
+      8. Prints full solve presentation to stdout if a solve was read this turn
 
     AgentSession owns SystemPromptBuilder, ConversationManager and
     AgentTools. It holds a reference to Dispatcher (does not own it).
@@ -42,7 +43,8 @@ class AgentSession:
         self._context = context
         self._builder = SystemPromptBuilder()
         self._conversation = ConversationManager()
-        self._tools = AgentTools(dispatcher)
+        self._tools = AgentTools(dispatcher, context)
+        self._last_presentation: str | None = None  # set by dispatcher hook, printed post-turn
 
         self._builder.add_static_section(
             "Role",
@@ -57,7 +59,9 @@ class AgentSession:
             "Always use tools to make changes to the scenario — never invent numbers. "
             "If the user asks for a solve, ensure queue profiles, demand, and a roster "
             "are all defined first. If anything is missing, ask before proceeding. "
-            "When presenting results, be concise and highlight shortfall by skill.",
+            "When presenting results, be concise and highlight shortfall by skill and "
+            "suggest targeted roster changes. The full grid has been printed separately "
+            "for the user — focus your commentary on the most actionable insights.",
         )
 
     def run_turn(self, user_message: str) -> str:
@@ -84,22 +88,24 @@ class AgentSession:
             tools=tools,
         ).until_done()
 
+        # Print the full ASCII presentation to the user if a read_result happened this turn.
+        # This is done here rather than inside the tool so it doesn't enter conversation history.
+        if self._context.solve_result is not None:
+            from engine.presenter import LLMPresenter
+            presentation = LLMPresenter(self._context.solve_result).present()
+            print(f"\n{presentation}\n")
+
         final_text = next(
             (block.text for block in final_message.content if block.type == "text"),
             "",
         )
         self._conversation.add_assistant_message(final_text)
         return final_text
-    
+
     def _get_tools(self) -> list:
-        """Return beta_tool decorated methods from AgentTools."""
         return self._tools.get_tools()
 
     def _build_system_blocks(self, prompt: str) -> list[dict]:
-        """
-        Split prompt on CACHE_BOUNDARY and return Anthropic system blocks.
-        The static prefix gets cache_control applied for prompt caching.
-        """
         if CACHE_BOUNDARY in prompt:
             static, dynamic = prompt.split(CACHE_BOUNDARY, 1)
             return [
@@ -116,10 +122,7 @@ class AgentSession:
         return [{"type": "text", "text": prompt.strip()}]
 
     def _summarise_context(self) -> str:
-        """
-        Read ScenarioContext and return a plain-text summary for the
-        dynamic prompt section. Rebuilt every turn.
-        """
+        """Read ScenarioContext and return a plain-text summary for the dynamic prompt section."""
         ctx = self._context
         lines = [f"Scenario: {ctx.name}"]
 
@@ -128,15 +131,17 @@ class AgentSession:
         else:
             lines.append("Queues defined: none")
 
-        if ctx.current_roster and ctx.queues:
-            cost = ctx.current_roster.total_monthly_cost(ctx.queues)
-            lines.append(f"Roster monthly cost: ${cost:,.0f}")
-
         lines.append("Demand derived: " + ("yes" if ctx.demand else "no"))
         lines.append("Roster defined: " + ("yes" if ctx.current_roster else "no"))
 
         if ctx.current_roster:
             lines.append(f"Roster size: {ctx.current_roster.total_agents} agents")
+            lines.append("Roster composition:")
+            lines.append(ctx.current_roster.summary())
+
+        if ctx.current_roster and ctx.queues:
+            cost = ctx.current_roster.total_monthly_cost(ctx.queues)
+            lines.append(f"Roster monthly cost: ${cost:,.0f}")
 
         if ctx.solve_result:
             lines.append(f"Last solve: {ctx.solve_result.status}, "
