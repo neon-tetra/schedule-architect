@@ -42,7 +42,7 @@ SKILL_ACCT_MONTHLY_COST   = 3300.0   # primary
 SKILL_ONLINE_MONTHLY_COST = 3600.0   # primary
 SKILL_PHOTO_MONTHLY_COST  =  500.0   # secondary (incremental)
 SKILL_FLORAL_MONTHLY_COST =  500.0   # secondary (incremental)
-SKILL_BAKERY_MONTHLY_COST =  500.0   # secondaSry (incremental)
+SKILL_BAKERY_MONTHLY_COST =  500.0   # secondary (incremental)
 SKILL_ESC_MONTHLY_COST    =  800.0   # secondary (incremental)
 
 # ── Call Environment: Account Services ───────────────────────────────────────

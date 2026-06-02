@@ -2,11 +2,16 @@ import os
 from engine.context import ScenarioContext
 from engine.dispatcher import Dispatcher
 from agent.session import AgentSession
+from scenarios.default import DEFAULT_COMMANDS
 
 
 def main():
     context = ScenarioContext(name="DefaultScenario")
     dispatcher = Dispatcher(context)
+
+    for cmd in DEFAULT_COMMANDS:
+        dispatcher.dispatch(cmd)
+
     session = AgentSession(
         dispatcher=dispatcher,
         context=context,

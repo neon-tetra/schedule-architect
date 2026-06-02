@@ -22,9 +22,7 @@ class ScenarioContext(BaseModel):
     solve_result: SolveResult | None = None
 
     def invalidate_solve_results(self) -> None:
-        """Clear any existing solve output. Called before any Define/Derive command."""
         self.solve_result = None
-        self.demand = None #again, revisit
 
     # Deferred
     # def is_ready_to_solve(self) -> bool: ...

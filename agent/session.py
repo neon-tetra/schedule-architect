@@ -123,6 +123,11 @@ class AgentSession:
         ctx = self._context
         lines = [f"Scenario: {ctx.name}"]
 
+        if ctx.queues:
+            lines.append(f"Queues defined: {', '.join(ctx.queues.keys())}")
+        else:
+            lines.append("Queues defined: none")
+
         if ctx.current_roster and ctx.queues:
             cost = ctx.current_roster.total_monthly_cost(ctx.queues)
             lines.append(f"Roster monthly cost: ${cost:,.0f}")
