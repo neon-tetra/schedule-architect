@@ -7,7 +7,7 @@ from engine.dispatcher import Dispatcher
 from engine.context import ScenarioContext
 from agent.tools import AgentTools
 from agent.prompt_builder import SystemPromptBuilder, CACHE_BOUNDARY
-from agent.conversation import ConversationManager
+from agent.conversation import ConversationManager, SUMMARISE_AFTER_TURNS
 
 MODEL_DEFAULT = "claude-opus-4-5"
 
@@ -68,7 +68,11 @@ class AgentSession:
         """Run a single user turn through the full agent lifecycle."""
 
         self._conversation.add_user_message(user_message)
-        self._conversation.trim()
+
+        if self._conversation.turn_count >= SUMMARISE_AFTER_TURNS:
+            self._conversation.summarise(self._client)
+        else:
+            self._conversation.trim()
 
         self._builder.add_dynamic_section(
             "Current Scenario State",

@@ -1,5 +1,6 @@
 import os
 import asyncio
+import pandas as pd
 import chainlit as cl
 
 from engine.context import ScenarioContext
@@ -8,8 +9,8 @@ from engine.presenter import LLMPresenter
 from agent.session import AgentSession
 from scenarios.default import DEFAULT_COMMANDS
 
-#Temporary - show 'thinking' bar while agent thinks -
-#need to redo session.py to get it to show tool calls and reasoning
+DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 
 def _build_session() -> AgentSession:
     """Initialise engine and agent session. Runs once per user session."""
@@ -22,6 +23,62 @@ def _build_session() -> AgentSession:
         context=context,
         api_key=os.environ["ANTHROPIC_API_KEY"],
     )
+
+
+def _build_result_elements(context: ScenarioContext) -> list:
+    """
+    Build Chainlit elements from the current solve result.
+    Returns a list of cl.Dataframe elements — one shortfall grid per skill,
+    plus a summary table across all skills.
+    """
+    if context.solve_result is None:
+        return []
+
+    data = LLMPresenter(context.solve_result).present_json()
+    elements = []
+
+    # ── Per-skill shortfall grids (days x hours) ──────────────────────────
+    for skill_id, skill_data in data["by_skill"].items():
+        rows = []
+        for day_name, day_data in skill_data["by_day"].items():
+            row = {"Day": day_name}
+            for hour_label, cell in day_data["by_hour"].items():
+                sf = cell["shortfall"]
+                dm = cell["demand"]
+                pct = cell["shortfall_pct"]
+                row[hour_label] = f"{sf} ({pct}%)" if dm > 0 else "-"
+            rows.append(row)
+
+        df = pd.DataFrame(rows).set_index("Day")
+        elements.append(
+            cl.Dataframe(
+                data=df,
+                display="inline",
+                name=f"Shortfall — {skill_id}",
+            )
+        )
+
+    # ── Summary table across all skills ───────────────────────────────────
+    summary_rows = []
+    for skill_id, skill_data in data["by_skill"].items():
+        summary_rows.append({
+            "Skill": skill_id,
+            "Total Shortfall": skill_data["total_shortfall"],
+            "Total Demand": skill_data["total_demand"],
+            "Shortfall %": f"{skill_data['shortfall_pct']}%",
+            "Worst Day": skill_data.get("worst_day", "-"),
+        })
+
+    summary_df = pd.DataFrame(summary_rows).set_index("Skill")
+    elements.append(
+        cl.Dataframe(
+            data=summary_df,
+            display="inline",
+            name="Summary",
+        )
+    )
+
+    return elements
 
 
 @cl.on_chat_start
@@ -42,19 +99,18 @@ async def on_chat_start():
 async def on_message(message: cl.Message):
     session: AgentSession = cl.user_session.get("agent")
 
-    # Show a thinking indicator while the (synchronous) agent turn runs
     async with cl.Step(name="Thinking…", type="run") as step:
         response_text = await asyncio.to_thread(session.run_turn, message.content)
         step.output = "Done"
 
-    # Send the agent's narrative response
     await cl.Message(content=response_text).send()
 
-    # If a solve result exists on the context, render the grid as a code block
+    # Render solve result as DataFrames if one exists
+    #Rendering all side by side and without totals or headers - will revisit
     context: ScenarioContext = session._context
-    if context.solve_result is not None:
-        presentation = LLMPresenter(context.solve_result).present()
+    elements = _build_result_elements(context)
+    if elements:
         await cl.Message(
-            content=f"```\n{presentation}\n```",
-            language="text",
+            content=f"**Solve results** — {len(elements) - 1} skill(s) + summary",
+            elements=elements,
         ).send()

@@ -54,14 +54,18 @@ package "Commands" <<Rectangle>> {
         + entries : list[RosterEntry]
     }
 
-    class Solve {
+	class Solve {
         + type : Literal["solve"]
+        + label : str | None
+        note: label keys the result in the registry.\nDefaults to ISO timestamp if omitted.
     }
 
     class ReadResult {
         + type : Literal["read_result"]
+        + label : str | None
+        note: None = current_result_key
     }
-
+	
     note bottom of DefineQueueProfile
         ModelCommand = Union[
           DefineQueueProfile,
@@ -80,11 +84,14 @@ package "Commands" <<Rectangle>> {
 package "Engine" <<Rectangle>> {
 
     class SolveResult {
+        + label : str
         + status : str
         + solve_time_seconds : float
+        + roster : Roster
         + demand : SlotMatrix
         + supply : SlotMatrix
         + shortfall : SlotMatrix
+        note: roster is a snapshot taken at solve time.\nSolveResult is fully self-contained\nand safe to compare across runs.
     }
 
     class CommandResult {
@@ -101,15 +108,23 @@ package "Engine" <<Rectangle>> {
         + queues : dict[str, QueueProfile]
         + demand : SlotMatrix | None
         + current_roster : Roster | None
-        + solve_result : SolveResult | None
+        + solve_results : dict[str, SolveResult]
+        + current_result_key : str | None
         --
+        + solve_result : SolveResult | None
+        note: solve_result is a property returning\nsolve_results[current_result_key] or None.\nProvides backwards-compatible read access.
+        + add_solve_result(result: SolveResult) : None
         + invalidate_solve_results() : None
-        <color:#999999>~ is_ready_to_solve() : bool</color>
+        ~ is_ready_to_solve() : bool
     }
 
     note right of ScenarioContext
         invalidate_solve_results()
-        clears solve_result only
+        clears the registry and
+        current_result_key entirely.
+        add_solve_result() stores by
+        result.label and updates
+        current_result_key.
     end note
 
     class Dispatcher {
@@ -163,7 +178,7 @@ Dispatcher "1" *-- "1" Handler : owns
 Handler "1" --> "1" ScenarioContext : reads/writes
 Handler "1" --> "1" ModelBuilder : delegates solve to
 Handler "1" --> "1" LLMPresenter : instantiates
-LLMPresenter --> SolveResult : reads
+Handler ..> SolveResult : assembles from SolverOutput\n+ roster snapshot
 Handler ..> SolveResult : assembles from SolverOutput
 Dispatcher ..> CommandResult : returns
 Handler ..> CommandResult : returns

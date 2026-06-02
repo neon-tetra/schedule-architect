@@ -24,3 +24,6 @@ Thumbs.db
 
 # Data
 .csv
+
+# Chainlit
+.files/
