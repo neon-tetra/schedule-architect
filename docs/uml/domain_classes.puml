@@ -39,6 +39,7 @@ package "Domain" <<Rectangle>> {
         + operating_hours : tuple[int,int]
         + day_weights : list[float]
         + interval_weights : list[float]
+        + monthly_cost : float
     }
 
     class SlotMatrix {
@@ -48,6 +49,7 @@ package "Domain" <<Rectangle>> {
         + get(day, slot, skill) : int
         + sum() : int
         + collapse_to_hours() : SlotMatrix
+        + skills() : set[str]
         + __sub__(other) : SlotMatrix
     }
 
@@ -56,6 +58,7 @@ package "Domain" <<Rectangle>> {
         + count : int
         --
         + from_string(s) : RosterEntry
+        + monthly_cost(queues) : float
     }
 
     class Roster {
@@ -64,7 +67,8 @@ package "Domain" <<Rectangle>> {
         + total_agents : int
         --
         + from_string(s) : Roster
-        + summary() : str
+        + summary(queues=None) : str
+        + total_monthly_cost(queues) : float
     }
 
 }
