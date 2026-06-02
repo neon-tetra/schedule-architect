@@ -32,6 +32,12 @@ package "Caller" <<Rectangle>> {
     [LLM / Agent] as LLM
 }
 
+note right of LLM
+    chat.py seeds ScenarioContext by
+    dispatching DEFAULT_COMMANDS
+    from scenarios/default.py at startup
+end note
+
 package "Engine" <<Rectangle>> {
     [Dispatcher] as Dispatcher
     [Handler] as Handler

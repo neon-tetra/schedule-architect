@@ -16,9 +16,6 @@ start
 :Look up handler\nin dispatch table;
 :Delegate to Handler;
 
-|Handler|
-:Invalidate solve result\nand demand on context;
-
 if (Define Cmd?) then (Yes)
     :Construct domain object;
     :Write to context;
@@ -33,6 +30,7 @@ else if (Derive Cmd?) then (Yes)
     :Return CommandResult.ok;
 
 else if (Solve Cmd?) then (Yes)
+    :Invalidate solve_result\non context;
     :Extract roster, queues,\ndemand from context;
     |ModelBuilder|
     :Build CP-SAT model\n(vars, constraints, objective);
@@ -47,7 +45,7 @@ else if (Solve Cmd?) then (Yes)
 else (Read Cmd)
     :Read SolveResult from context;
     :Instantiate LLMPresenter\nwith SolveResult;
-    :Return CommandResult.ok\nwith presentation in data;
+    :Return CommandResult.ok\nwith result + presentation in data;
 
 endif
 

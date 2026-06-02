@@ -34,9 +34,11 @@ package "Agent" <<Rectangle>> {
         + session_id : str
         + model : str
         - _client : Anthropic
+        - _context : ScenarioContext
         - _builder : SystemPromptBuilder
         - _conversation : ConversationManager
         - _tools : AgentTools
+        - _last_presentation : str | None
         --
         + run_turn(user_message: str) : str
         <color:#999999>~ swap_model(model: str) : None</color>
@@ -44,17 +46,18 @@ package "Agent" <<Rectangle>> {
 
     class AgentTools {
         - _dispatcher : Dispatcher
+        - _context : ScenarioContext
         --
         + get_tools() : list[BetaTool]
-        + define_queue_profile(skill_id, weekly_volume, ...) : str
-        + derive_erlang(target_sl, ...) : str
-        + define_roster(entries, ...) : str
-        + solve() : str
-        + read_result() : str
-        ' each method: construct Command,
+        ' tool closures include define_queue_profile,
+        ' derive_erlang, define_roster,
+        ' solve, read_result, read_roster
+        ' each closure: construct Command,
         ' dispatch, return json.dumps(result.data)
-        ' each method decorated with @beta_tool
+        ' each closure decorated with @beta_tool
         ' docstrings are agent-facing descriptions
+        ' deferred: add_to_roster
+        ' deferred: subtract_from_roster
     }
 
     class SystemPromptBuilder {
@@ -120,6 +123,7 @@ AgentSession "1" *-- "1" SystemPromptBuilder : owns
 AgentSession "1" *-- "1" ConversationManager : owns
 AgentSession "1" *-- "1" AgentTools : owns
 AgentTools "1" --> "1" Dispatcher : uses (ref)
+AgentTools "1" --> "1" ScenarioContext : reads (ref)
 SystemPromptBuilder "1" *-- "many" PromptSection : owns
 WorkspaceManager ..> ScenarioContext : will own
 AgentSession ..> ScenarioContext : reads for dynamic sections

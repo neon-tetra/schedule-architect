@@ -23,7 +23,7 @@ start
 |AgentSession|
 :SystemPromptBuilder.build()\n— static prefix + dynamic suffix;
 :ConversationManager\nget_messages();
-:AgentTools.get_tools()\n— @beta_tool decorated methods;
+:AgentTools.get_tools()\n— @beta_tool decorated closures;
 :Call tool_runner(\n  model, system, tools, messages\n);
 
 |Anthropic / tool_runner|
@@ -44,7 +44,7 @@ repeat
     :Emit tool_use block\nwith tool name + args;
 
     |Tools|
-    :@beta_tool method invoked\nwith Claude's args;
+    :@beta_tool closure invoked\nwith Claude's args;
     :Construct Command\nfrom args;
     :Dispatcher.dispatch(cmd);
 
@@ -54,6 +54,8 @@ repeat
 
     |Tools|
     :Wrap CommandResult\nas json string;
+    ' deferred: add_to_roster
+    ' deferred: subtract_from_roster
     :Return tool result\nto tool_runner;
 
     |Anthropic / tool_runner|
@@ -70,6 +72,7 @@ repeat while (stop_reason == tool_use?) is (yes)
 :Return final BetaMessage;
 
 |AgentSession|
+:If solve_result exists,\nprint LLMPresenter.present()\nASCII grid to stdout;
 :ConversationManager\nadd_assistant_message();
 :Extract response text;
 

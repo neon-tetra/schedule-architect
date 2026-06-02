@@ -39,6 +39,7 @@ package "Commands" <<Rectangle>> {
         + operating_hours : tuple[int,int]
         + day_weights : list[float]
         + interval_weights : list[float]
+        + monthly_cost : float
     }
 
     class DeriveErlang {
@@ -106,6 +107,11 @@ package "Engine" <<Rectangle>> {
         <color:#999999>~ is_ready_to_solve() : bool</color>
     }
 
+    note right of ScenarioContext
+        invalidate_solve_results()
+        clears solve_result only
+    end note
+
     class Dispatcher {
         - _handler : Handler
         - _dispatch_table : dict[str, Callable]
@@ -129,6 +135,7 @@ package "Engine" <<Rectangle>> {
         - _result : SolveResult
         --
         + present() : str
+        + present_json() : dict
         + summary_header() : str
         + shortfall_table() : str
         <color:#999999>~ coverage_by_skill() : str</color>
