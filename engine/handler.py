@@ -25,6 +25,7 @@ class Handler:
             operating_hours=cmd.operating_hours,
             day_weights=cmd.day_weights,
             interval_weights=cmd.interval_weights,
+            monthly_cost=cmd.monthly_cost,
         )
         self._context.queues[cmd.skill_id] = env
         return CommandResult.ok(f"Call environment defined for skill '{cmd.skill_id}'.")

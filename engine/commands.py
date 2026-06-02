@@ -14,6 +14,8 @@ class DefineQueueProfile(BaseModel):
     operating_hours: tuple[int, int] = (8, 20)
     day_weights: list[float]
     interval_weights: list[float]
+    monthly_cost: float
+    
 
 
 class DeriveErlang(BaseModel):

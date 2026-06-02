@@ -97,6 +97,10 @@ class ModelBuilder:
         def slots_in_shift(shift): #helper used for below
             return range(shift * 2, shift * 2 + SHIFT_DURATION_SLOTS)
         
+
+
+
+        
         def coverage(day, slot, skill):
             valid_agents = [agent for agent in agents if skill in agent["skills"]]
             valid_shifts = [shift for shift in VALID_SHIFT_STARTS if slot in slots_in_shift(shift)]

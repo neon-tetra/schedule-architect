@@ -104,4 +104,4 @@ class AgentTools:
     def read_result(self) -> str:
         """Read and return the current solve result in a formatted presentation."""
         result = self._dispatcher.dispatch(ReadResult())
-        return json.dumps({"success": result.success, "message": result.message, "presentation": result.data})
+        return json.dumps({"success": result.success, "message": result.message, **(result.data or {})})
