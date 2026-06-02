@@ -124,3 +124,4 @@ class AgentTools:
                 "monthly_cost": total_cost,
                 "entries": entries,
             })
+        return [define_queue_profile, derive_erlang, define_roster, solve, read_result, read_roster]
