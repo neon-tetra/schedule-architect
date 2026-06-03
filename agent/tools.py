@@ -170,16 +170,18 @@ class AgentTools:
                     "message": f"Result label '{result_label}' is not available in this session.",
                 })
 
+            # TODO: ChartBuilder currently raises NotImplementedError for supported charts.
+            # Retrieval happens first to keep the future build flow in place.
             retrieval_result = self._dispatcher.retrieve(QueryStatus())
             if not retrieval_result.success:
                 return json.dumps({"chart_sent": False, "message": retrieval_result.message})
+            if self._context.solve_result is None:
+                return json.dumps({"chart_sent": False, "message": "No solve result available. Run solve first."})
 
             try:
                 fig = self._chart_builder.build(chart_type, retrieval_result)
             except NotImplementedError:
                 # Fallback to legacy chart building while ChartBuilder is still a stub.
-                if self._context.solve_result is None:
-                    return json.dumps({"chart_sent": False, "message": "No solve result available. Run solve first."})
                 fig = self._build_chart_figure(chart_type)
             except ValueError as exc:
                 return json.dumps({"chart_sent": False, "message": str(exc)})

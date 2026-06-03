@@ -26,7 +26,7 @@ class ChartBuilder:
 
     def supported_charts(self) -> list[str]:
         """Return the list of supported chart types."""
-        return self.SUPPORTED_CHARTS
+        return self.SUPPORTED_CHARTS.copy()
 
     def build(self, chart_type: str, result: RetrievalResult) -> go.Figure:
         """
