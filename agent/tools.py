@@ -1,5 +1,8 @@
+import asyncio
 import json
 
+import chainlit as cl
+import plotly.graph_objects as go
 from anthropic import beta_tool
 from engine.dispatcher import Dispatcher
 from engine.commands import (
@@ -11,6 +14,7 @@ from engine.commands import (
 )
 from domain.roster import RosterEntry
 from engine.context import ScenarioContext
+from engine.presenter import LLMPresenter
 
 class AgentTools:
     """
@@ -26,6 +30,53 @@ class AgentTools:
     def __init__(self, dispatcher: Dispatcher, context: ScenarioContext):
         self._dispatcher = dispatcher
         self._context = context
+
+    def _build_chart_figure(self, chart_type: str):
+        data = LLMPresenter(self._context.solve_result).present_json()
+        by_skill = sorted(data["by_skill"].items())
+        skills = [skill_id for skill_id, _ in by_skill]
+
+        if chart_type == "shortfall_by_skill":
+            values = [skill_data["total_shortfall"] for _, skill_data in by_skill]
+            fig = go.Figure(data=[go.Bar(x=skills, y=values, name="Shortfall")])
+            fig.update_layout(
+                title="Total shortfall by skill",
+                xaxis_title="Skill",
+                yaxis_title="Agent-intervals",
+            )
+            return fig
+
+        if chart_type == "shortfall_pct_by_skill":
+            values = [skill_data["shortfall_pct"] for _, skill_data in by_skill]
+            fig = go.Figure(data=[go.Bar(x=skills, y=values, name="Shortfall %")])
+            fig.update_layout(
+                title="Shortfall percentage by skill",
+                xaxis_title="Skill",
+                yaxis_title="Shortfall %",
+            )
+            return fig
+
+        if chart_type == "demand_vs_shortfall":
+            demand = [skill_data["total_demand"] for _, skill_data in by_skill]
+            shortfall = [skill_data["total_shortfall"] for _, skill_data in by_skill]
+            fig = go.Figure(
+                data=[
+                    go.Bar(x=skills, y=demand, name="Demand"),
+                    go.Bar(x=skills, y=shortfall, name="Shortfall"),
+                ]
+            )
+            fig.update_layout(
+                barmode="group",
+                title="Demand versus shortfall by skill",
+                xaxis_title="Skill",
+                yaxis_title="Agent-intervals",
+            )
+            return fig
+
+        raise ValueError(
+            "Unsupported chart_type. Use one of: shortfall_by_skill, "
+            "shortfall_pct_by_skill, demand_vs_shortfall."
+        )
 
     def get_tools(self) -> list:
         """Build and return the list of beta_tool decorated functions exposed to the agent."""
@@ -88,9 +139,9 @@ class AgentTools:
             return json.dumps({"success": result.success, "message": result.message})
 
         @beta_tool
-        def solve() -> str:
+        async def solve() -> str:
             """Run the CP-SAT optimisation solver against the current queues, demand, and roster."""
-            result = self._dispatcher.dispatch(Solve())
+            result = await asyncio.to_thread(self._dispatcher.dispatch, Solve())
             return json.dumps({"success": result.success, "message": result.message})
 
         @beta_tool
@@ -101,6 +152,39 @@ class AgentTools:
             if not result.success:
                 return json.dumps({"success": False, "message": result.message})
             return json.dumps({"success": True, **(result.data.get("result", {}))})
+
+        @beta_tool
+        async def show(
+            chart_type: str = "shortfall_by_skill",
+            result_label: str | None = None,
+        ) -> str:
+            """
+            Render and send an inline Plotly chart for the current solve result.
+            Supported chart_type values: shortfall_by_skill, shortfall_pct_by_skill,
+            demand_vs_shortfall.
+            """
+            if self._context.solve_result is None:
+                return json.dumps({"chart_sent": False, "message": "No solve result available. Run solve first."})
+
+            result_label = result_label or "current"
+            if result_label != "current":
+                return json.dumps({
+                    "chart_sent": False,
+                    "message": f"Result label '{result_label}' is not available in this session.",
+                })
+
+            try:
+                fig = self._build_chart_figure(chart_type)
+            except ValueError as exc:
+                return json.dumps({"chart_sent": False, "message": str(exc)})
+
+            await cl.Message(
+                content="",
+                elements=[cl.Plotly(name=chart_type, figure=fig, display="inline")]
+            ).send()
+
+            return json.dumps({"chart_sent": True, "chart_type": chart_type, "label": result_label})
+
         @beta_tool
         def read_roster() -> str:
             """Read the current roster composition — agent groups, skill combinations, 
@@ -124,4 +208,4 @@ class AgentTools:
                 "monthly_cost": total_cost,
                 "entries": entries,
             })
-        return [define_queue_profile, derive_erlang, define_roster, solve, read_result, read_roster]
+        return [define_queue_profile, derive_erlang, define_roster, solve, read_result, show, read_roster]
