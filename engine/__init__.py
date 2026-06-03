@@ -8,6 +8,7 @@ from engine.commands import (
 from engine.command_result import CommandResult
 from engine.context import ScenarioContext
 from engine.dispatcher import Dispatcher
+from engine.retrieval import QueryStatus, RetrievalResult, ModelQuery
 from engine.solve_result import SolveResult
 
 __all__ = [
@@ -17,6 +18,9 @@ __all__ = [
     "Solve",
     "ModelCommand",
     "CommandResult",
+    "QueryStatus",
+    "RetrievalResult",
+    "ModelQuery",
     "ScenarioContext",
     "Dispatcher",
     "SolveResult",

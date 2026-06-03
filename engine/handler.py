@@ -1,7 +1,8 @@
-from engine.commands import DefineQueueProfile, DeriveErlang, DefineRoster, Solve, ReadResult
+from engine.commands import DefineQueueProfile, DeriveErlang, DefineRoster, Solve
 from engine.command_result import CommandResult
 from engine.context import ScenarioContext
 from engine.presenter import LLMPresenter
+from engine.retrieval import QueryStatus, RetrievalResult
 from domain import QueueProfile, Roster, SlotMatrix
 from solver.erlang import ErlangC
 from solver import ModelBuilder
@@ -69,30 +70,44 @@ class Handler:
         self._context.solve_result = result
         return CommandResult.ok(f"Solve complete. Status: {result.status}. Shortfall slots: {result.shortfall.sum()}.")
 
-    # ── Read ──────────────────────────────────────────────────────────────────
+    # ── Retrieve ──────────────────────────────────────────────────────────────
 
-    def handle_read_result(self, cmd: ReadResult) -> CommandResult:
-        if self._context.solve_result is None:
-            return CommandResult.fail("No solve result available. Run solve first.")
+    def handle_query_status(self, query: QueryStatus) -> RetrievalResult:
+        roster = self._context.current_roster
+        queues = self._context.queues
+        solve_result = self._context.solve_result
 
-        presenter = LLMPresenter(self._context.solve_result)
-
-        # Compact JSON for agent reasoning
-        result_json = presenter.present_json()
-
-        # Add roster cost alongside solve metrics
-        if self._context.current_roster and self._context.queues:
-            result_json["monthly_roster_cost"] = self._context.current_roster.total_monthly_cost(
-                self._context.queues
-            )
-
-        # Full ASCII presentation for human display (returned separately)
-        presentation = presenter.present()
-
-        return CommandResult.ok(
-            "Result ready.",
-            data={
-                "result": result_json,        # agent sees this
-                "presentation": presentation, # session layer prints this, doesn't store in history
+        roster_data = None
+        if roster is not None:
+            roster_data = {
+                "total_agents": roster.total_agents,
+                "monthly_cost": roster.total_monthly_cost(queues) if queues else None,
+                "entries": [
+                    {
+                        "skills": entry.skills,
+                        "count": entry.count,
+                        "monthly_cost_per_agent": entry.monthly_cost(queues) if queues else None,
+                    }
+                    for entry in roster.entries
+                ],
             }
+
+        solve_data = None
+        if solve_result is not None:
+            result_json = LLMPresenter(solve_result).present_json()
+            shortfall_pct_by_skill = {
+                skill_id: skill_data["shortfall_pct"]
+                for skill_id, skill_data in result_json["by_skill"].items()
+            }
+            worst_skill = max(shortfall_pct_by_skill, key=shortfall_pct_by_skill.get) if shortfall_pct_by_skill else None
+            solve_data = {
+                "status": result_json["status"],
+                "total_shortfall": result_json["total_shortfall"],
+                "shortfall_pct_by_skill": shortfall_pct_by_skill,
+                "worst_skill": worst_skill,
+            }
+
+        return RetrievalResult.ok(
+            "Status ready.",
+            data={"roster": roster_data, "solve": solve_data},
         )

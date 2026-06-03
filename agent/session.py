@@ -92,7 +92,7 @@ class AgentSession:
         )
         final_message = await runner.until_done()
 
-        # Print the full ASCII presentation to the user if a read_result happened this turn.
+        # Print the full ASCII presentation to the user if a solve result exists.
         # This is done here rather than inside the tool so it doesn't enter conversation history.
         if self._context.solve_result is not None:
             from engine.presenter import LLMPresenter

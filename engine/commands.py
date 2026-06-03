@@ -37,11 +37,6 @@ class Solve(BaseModel):
     type: Literal["solve"] = "solve"
 
 
-class ReadResult(BaseModel):
-    """Return a formatted presentation of the current solve result."""
-    type: Literal["read_result"] = "read_result"
-
-
 # Deferred
 # class ReadContext(BaseModel):
 #     type: Literal["read_context"] = "read_context"
@@ -52,5 +47,4 @@ ModelCommand = Union[
     DeriveErlang,
     DefineRoster,
     Solve,
-    ReadResult,
 ]
