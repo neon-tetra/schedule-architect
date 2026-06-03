@@ -1,4 +1,3 @@
-from unittest import result
 from engine import ScenarioContext, Dispatcher, QueryStatus
 from engine.commands import Solve
 from engine.presenter import LLMPresenter
@@ -19,12 +18,13 @@ def main():
     print(f"\n{'✓' if result.success else '✗'} solve: {result.message}")
 
     result = dispatcher.retrieve(QueryStatus())
-    if result.success and context.solve_result is not None:
-        presentation = LLMPresenter(context.solve_result).present()
-        print(f"\n{presentation}")
-        open("output_presentation.txt", "w").write(presentation)
+    if result.success:
+        if context.solve_result is not None:
+            presentation = LLMPresenter(context.solve_result).present()
+            print(f"\n{presentation}")
+            open("output_presentation.txt", "w").write(presentation)
 
-        if result.data and result.data.get("roster") is not None:
+        if result.data and result.data.get("roster") is not None and context.current_roster is not None:
             roster_data = result.data["roster"]
             print(f"\n📋 Roster Breakdown:\n{context.current_roster.summary(context.queues)}")
             if roster_data["monthly_cost"] is not None:

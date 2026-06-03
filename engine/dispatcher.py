@@ -1,3 +1,5 @@
+from typing import Callable
+
 from engine.commands import (
     ModelCommand,
     DefineQueueProfile,
@@ -19,7 +21,7 @@ class Dispatcher:
 
     def __init__(self, context: ScenarioContext) -> None:
         self._handler = Handler(context)
-        self._dispatch_table: dict[str, callable] = {
+        self._dispatch_table: dict[str, Callable[[ModelCommand], CommandResult]] = {
             "define_queue_profile":    self._handler.handle_define_queue_profile,
             "derive_erlang":           self._handler.handle_derive_erlang,
             "define_roster":           self._handler.handle_define_roster,
@@ -27,7 +29,7 @@ class Dispatcher:
             # Deferred
             # "read_context": self._handler.handle_read_context,
         }
-        self._retrieval_table: dict[str, callable] = {
+        self._retrieval_table: dict[str, Callable[[ModelQuery], RetrievalResult]] = {
             "query_status": self._handler.handle_query_status,
         }
 
