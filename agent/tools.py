@@ -4,13 +4,13 @@ import json
 import chainlit as cl
 import plotly.graph_objects as go
 from anthropic import beta_tool
+from engine import QueryStatus
 from engine.dispatcher import Dispatcher
 from engine.commands import (
     DefineQueueProfile,
     DeriveErlang,
     DefineRoster,
     Solve,
-    ReadResult,
 )
 from domain.roster import RosterEntry
 from engine.context import ScenarioContext
@@ -145,13 +145,10 @@ class AgentTools:
             return json.dumps({"success": result.success, "message": result.message})
 
         @beta_tool
-        def read_result() -> str:
-            """Read and return the current solve result including shortfall by skill, demand, 
-            and monthly roster cost. Returns full day-by-hour breakdown per skill."""
-            result = self._dispatcher.dispatch(ReadResult())
-            if not result.success:
-                return json.dumps({"success": False, "message": result.message})
-            return json.dumps({"success": True, **(result.data.get("result", {}))})
+        def retrieve_status() -> str:
+            """Retrieve current scenario status — roster composition, headcount, monthly cost, and latest solve result summary if available. Call this to orient yourself at the start of a turn."""
+            result = self._dispatcher.retrieve(QueryStatus())
+            return json.dumps({"success": result.success, **(result.data or {"message": result.message})})
 
         @beta_tool
         async def show(
@@ -208,4 +205,4 @@ class AgentTools:
                 "monthly_cost": total_cost,
                 "entries": entries,
             })
-        return [define_queue_profile, derive_erlang, define_roster, solve, read_result, show, read_roster]
+        return [define_queue_profile, derive_erlang, define_roster, solve, retrieve_status, show, read_roster]

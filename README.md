@@ -39,7 +39,7 @@ This reflects how I work in real engineering environments — using AI tools to 
 - Define an agent roster from skill groups and headcounts
 - CP-SAT schedule optimization minimizing coverage shortfall
 - Solve result bundled as demand / supply / shortfall slot matrices
-- LLM-readable result presentation via `ReadResult` command
+- LLM-readable status retrieval via `QueryStatus` retrieval
 - Live conversational agent session via Anthropic Claude with full tool use
 - Prompt caching — static system prompt prefix cached across turns to minimize token cost
 - `chat.py` REPL entry point for interactive scenario building
@@ -54,7 +54,7 @@ This reflects how I work in real engineering environments — using AI tools to 
 | Command dispatcher + handler | Bespoke constraint authoring via agent |
 | Erlang C derivation | Weighted and conditional shortfall penalties |
 | CP-SAT solve | Coverage ratio and floor constraints |
-| `ReadResult` + `LLMPresenter` | Parameterizable objective function |
+| `QueryStatus` retrieval + `LLMPresenter` | Parameterizable objective function |
 | Shortfall table presentation | Batch scenario commands |
 | Agent session + tool use | Multi-scenario session management |
 | Prompt caching | Schedule types and shift templates |

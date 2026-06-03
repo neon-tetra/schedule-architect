@@ -1,6 +1,6 @@
-from unittest import result
-from engine import ScenarioContext, Dispatcher
-from engine.commands import Solve, ReadResult
+from engine import ScenarioContext, Dispatcher, QueryStatus
+from engine.commands import Solve
+from engine.presenter import LLMPresenter
 from scenarios.default import DEFAULT_COMMANDS
 
 
@@ -17,17 +17,20 @@ def main():
     result = dispatcher.dispatch(Solve())
     print(f"\n{'✓' if result.success else '✗'} solve: {result.message}")
 
-    result = dispatcher.dispatch(ReadResult())
+    result = dispatcher.retrieve(QueryStatus())
     if result.success:
-        print(f"\n{result.data['presentation']}")
-        open("output_presentation.txt", "w").write(result.data["presentation"])
+        if context.solve_result is not None:
+            presentation = LLMPresenter(context.solve_result).present()
+            print(f"\n{presentation}")
+            open("output_presentation.txt", "w").write(presentation)
 
-        roster_cost = context.current_roster.total_monthly_cost(context.queues)
-        print(f"\n📋 Roster Breakdown:\n{context.current_roster.summary(context.queues)}")
-        print(f"\n💰 Total monthly roster cost: ${roster_cost:,.0f}")
-        
+        if result.data and result.data.get("roster") is not None and context.current_roster is not None:
+            roster_data = result.data["roster"]
+            print(f"\n📋 Roster Breakdown:\n{context.current_roster.summary(context.queues)}")
+            if roster_data["monthly_cost"] is not None:
+                print(f"\n💰 Total monthly roster cost: ${roster_data['monthly_cost']:,.0f}")
     else:
-        print(f"\n✗ read_result: {result.message}")
+        print(f"\n✗ query_status: {result.message}")
 
 
 if __name__ == "__main__":
