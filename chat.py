@@ -1,3 +1,4 @@
+import asyncio
 import os
 from engine.context import ScenarioContext
 from engine.dispatcher import Dispatcher
@@ -5,7 +6,7 @@ from agent.session import AgentSession
 from scenarios.default import DEFAULT_COMMANDS
 
 
-def main():
+async def main():
     context = ScenarioContext(name="DefaultScenario")
     dispatcher = Dispatcher(context)
 
@@ -26,9 +27,9 @@ def main():
             break
         if not user_input:
             continue
-        response = session.run_turn(user_input)
+        response = await session.run_turn(user_input)
         print(f"\nAssistant: {response}\n")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

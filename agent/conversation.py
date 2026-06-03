@@ -60,7 +60,7 @@ class ConversationManager:
             excess = excess + (excess % 2)
             self._messages = self._messages[excess:]
 
-    def summarise(self, client) -> None:
+    async def summarise(self, client) -> None:
         """
         Compress older conversation turns into a summary string, keeping
         only the most recent KEEP_RECENT_TURNS turns verbatim.
@@ -109,7 +109,7 @@ class ConversationManager:
         )
 
         try:
-            response = client.messages.create(
+            response = await client.messages.create(
                 model="claude-haiku-4-5",
                 max_tokens=512,
                 messages=[{"role": "user", "content": summarise_prompt}],

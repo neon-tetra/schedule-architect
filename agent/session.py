@@ -1,7 +1,6 @@
 import uuid
 
-from anthropic import Anthropic
-from anthropic import beta_tool
+from anthropic import AsyncAnthropic
 
 from engine.dispatcher import Dispatcher
 from engine.context import ScenarioContext
@@ -39,7 +38,7 @@ class AgentSession:
     ):
         self.session_id = str(uuid.uuid4())
         self.model = model
-        self._client = Anthropic(api_key=api_key)
+        self._client = AsyncAnthropic(api_key=api_key)
         self._context = context
         self._builder = SystemPromptBuilder()
         self._conversation = ConversationManager()
@@ -64,13 +63,13 @@ class AgentSession:
             "for the user — focus your commentary on the most actionable insights.",
         )
 
-    def run_turn(self, user_message: str) -> str:
+    async def run_turn(self, user_message: str) -> str:
         """Run a single user turn through the full agent lifecycle."""
 
         self._conversation.add_user_message(user_message)
 
         if self._conversation.turn_count >= SUMMARISE_AFTER_TURNS:
-            self._conversation.summarise(self._client)
+            await self._conversation.summarise(self._client)
         else:
             self._conversation.trim()
 
@@ -84,13 +83,14 @@ class AgentSession:
         messages = self._conversation.get_messages()
         tools = self._get_tools()
 
-        final_message = self._client.beta.messages.tool_runner(
+        runner = self._client.beta.messages.tool_runner(
             model=self.model,
             max_tokens=4096,
             system=system,
             messages=messages,
             tools=tools,
-        ).until_done()
+        )
+        final_message = await runner.until_done()
 
         # Print the full ASCII presentation to the user if a read_result happened this turn.
         # This is done here rather than inside the tool so it doesn't enter conversation history.

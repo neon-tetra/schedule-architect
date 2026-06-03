@@ -98,6 +98,7 @@ opentelemetry-util-http==0.63b1
 ortools==9.15.6755
 packaging==26.2
 pandas==3.0.3
+plotly==6.7.0
 propcache==0.5.2
 protobuf==6.33.6
 pycparser==3.0
