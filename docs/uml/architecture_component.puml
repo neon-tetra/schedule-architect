@@ -24,34 +24,50 @@ legend top right
   | <<deferred>>     | Planned / future       |
 endlegend
 
-' ─────────────────────────────────────────
-' LAYERS
-' ─────────────────────────────────────────
-
 package "Caller" <<Rectangle>> {
-    [LLM / Agent] as LLM
+    [App / Chainlit] as App
 }
 
-note right of LLM
+note right of App
     chat.py seeds ScenarioContext by
     dispatching DEFAULT_COMMANDS
-    from scenarios/default.py at startup
+    from scenarios/default.py at startup.
+    Chainlit surfaces agent responses
+    and chart artifacts.
 end note
+
+package "Agent" <<Rectangle>> {
+    [AgentSession] as AgentSession
+    [AgentTools] as AgentTools
+    [SystemPromptBuilder] as SPB
+    [ConversationManager] as CM
+}
+
+package "Presentation" <<Rectangle>> {
+    [ChartRenderer] as ChartRenderer
+    note right of ChartRenderer
+        Accepts SolveResult + chart_type.
+        Returns Plotly figure or
+        Chainlit element.
+        No dependency on Engine or Agent
+        internals — Domain types only.
+    end note
+    [TextRenderer] <<deferred>> as TextRenderer
+}
 
 package "Engine" <<Rectangle>> {
     [Dispatcher] as Dispatcher
     [Handler] as Handler
     [ScenarioContext] as Context
     [SolveResult] as SolveResult
-    [LLMPresenter] as LLMPresenter
 }
 
 package "Solver" <<Rectangle>> {
     [ErlangC] as ErlangC
-    [VarRegistry] as VarRegistry
     [ModelBuilder] as ModelBuilder
     [SolverOutput] as SolverOutput
     [CP-SAT Solver] as CPSAT
+    [VarRegistry] as VarRegistry
 }
 
 package "Domain" <<Rectangle>> {
@@ -66,19 +82,25 @@ package "Domain" <<Rectangle>> {
 ' INTERACTIONS
 ' ─────────────────────────────────────────
 
-LLM --> Dispatcher : ModelCommand (JSON)
+App --> AgentSession : user message
+AgentSession --> AgentTools : get_tools()
+AgentTools --> Dispatcher : ModelCommand (dispatch)
+AgentTools --> Context : read (show tool)
+AgentTools --> ChartRenderer : render(SolveResult, chart_type)
+ChartRenderer --> App : Plotly figure / element
+
 Dispatcher --> Handler : typed command
 Handler --> Context : read / write
-Handler --> ErlangC : derive demand (MVP shortcut)
-Handler --> ModelBuilder : delegate solve\n(roster, queues, demand)
+Handler --> ErlangC : derive demand
+Handler --> ModelBuilder : delegate solve
 ModelBuilder --> CPSAT : build and solve
-ModelBuilder --> VarRegistry : indexes vars
+ModelBuilder --> VarRegistry : index vars
 ModelBuilder --> SolverOutput : returns
-Handler --> SolveResult : assembles from SolverOutput\nwrites to context
-Handler --> LLMPresenter : instantiates with SolveResult
-Dispatcher --> LLM : CommandResult
+Handler --> SolveResult : assembles + writes to context
 
+Agent ..> Domain : depends on
 Engine ..> Domain : depends on
 Solver ..> Domain : depends on
+Presentation ..> Domain : depends on
 
 @enduml

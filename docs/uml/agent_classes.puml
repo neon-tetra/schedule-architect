@@ -25,9 +25,6 @@ legend top right
   | <<deferred>> class | Placeholder only     |
 endlegend
 
-' ─────────────────────────────────────────
-' PACKAGE: Agent
-' ─────────────────────────────────────────
 package "Agent" <<Rectangle>> {
 
     class AgentSession {
@@ -38,7 +35,6 @@ package "Agent" <<Rectangle>> {
         - _builder : SystemPromptBuilder
         - _conversation : ConversationManager
         - _tools : AgentTools
-        - _last_presentation : str | None
         --
         + run_turn(user_message: str) : str
         <color:#999999>~ swap_model(model: str) : None</color>
@@ -47,17 +43,14 @@ package "Agent" <<Rectangle>> {
     class AgentTools {
         - _dispatcher : Dispatcher
         - _context : ScenarioContext
+        - _renderer : ChartRenderer
         --
         + get_tools() : list[BetaTool]
-        ' tool closures include define_queue_profile,
+        ' tool closures: define_queue_profile,
         ' derive_erlang, define_roster,
-        ' solve, read_result, read_roster
-        ' each closure: construct Command,
-        ' dispatch, return json.dumps(result.data)
-        ' each closure decorated with @beta_tool
-        ' docstrings are agent-facing descriptions
-        ' deferred: add_to_roster
-        ' deferred: subtract_from_roster
+        ' solve, read_result, show
+        ' each decorated with @beta_tool
+        ' deferred: add_to_roster, subtract_from_roster
     }
 
     class SystemPromptBuilder {
@@ -89,41 +82,46 @@ package "Agent" <<Rectangle>> {
     }
 
     class WorkspaceManager <<deferred>> {
-        ' placeholder - deferred
-        ' ScenarioContext currently lives in Engine
-        ' will migrate here when multi-scenario
-        ' or webapp support is needed
         <color:#999999>~ get_context(scenario_id: str) : ScenarioContext</color>
         <color:#999999>~ list_scenarios() : list[str]</color>
     }
 
 }
 
-' ─────────────────────────────────────────
-' PACKAGE: Engine (existing)
-' ─────────────────────────────────────────
-package "Engine" <<Rectangle>> {
+package "Presentation" <<Rectangle>> {
 
-    class Dispatcher {
-        ' existing - no changes
+    class ChartRenderer {
+        --
+        + render(result: SolveResult, chart_type: str) : ChartArtifact
+        + supported_charts() : list[str]
+        <color:#999999>~ render_comparison(a: SolveResult, b: SolveResult, chart_type: str) : ChartArtifact</color>
     }
 
-    class ScenarioContext {
-        ' existing - no changes
-        ' note: candidate to migrate to
-        ' WorkspaceManager post-MVP
+    note right of ChartRenderer
+        chart_type is a closed vocabulary —
+        agent picks from supported_charts().
+        Today: Plotly + Chainlit element.
+        Surface is injectable / deferred.
+    end note
+
+    class TextRenderer <<deferred>> {
+        <color:#999999>~ render_summary(result: SolveResult) : str</color>
+        <color:#999999>~ render_shortfall_table(result: SolveResult) : str</color>
     }
 
 }
 
-' ─────────────────────────────────────────
-' RELATIONSHIPS
-' ─────────────────────────────────────────
+package "Engine" <<Rectangle>> {
+    class Dispatcher {}
+    class ScenarioContext {}
+}
+
 AgentSession "1" *-- "1" SystemPromptBuilder : owns
 AgentSession "1" *-- "1" ConversationManager : owns
 AgentSession "1" *-- "1" AgentTools : owns
 AgentTools "1" --> "1" Dispatcher : uses (ref)
 AgentTools "1" --> "1" ScenarioContext : reads (ref)
+AgentTools "1" --> "1" ChartRenderer : uses (ref)
 SystemPromptBuilder "1" *-- "many" PromptSection : owns
 WorkspaceManager ..> ScenarioContext : will own
 AgentSession ..> ScenarioContext : reads for dynamic sections

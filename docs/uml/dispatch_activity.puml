@@ -1,4 +1,4 @@
-@startuml engine_activity
+@startuml dispatch_activity
 
 skinparam backgroundColor #D3D3D3
 skinparam defaultFontName Segoe UI
@@ -22,7 +22,6 @@ if (Define Cmd?) then (Yes)
     :Return CommandResult.ok;
 
 else if (Derive Cmd?) then (Yes)
-' this feels weird , erlang being the only derive
     :Read queues from context;
     :Call ErlangC per queue;
     :Merge into demand SlotMatrix;
@@ -30,7 +29,7 @@ else if (Derive Cmd?) then (Yes)
     :Return CommandResult.ok;
 
 else if (Solve Cmd?) then (Yes)
-    :Invalidate solve_result\non context;
+    :Invalidate solve_results\non context;
     :Extract roster, queues,\ndemand from context;
     |ModelBuilder|
     :Build CP-SAT model\n(vars, constraints, objective);
@@ -38,14 +37,20 @@ else if (Solve Cmd?) then (Yes)
     :Build supply + shortfall\nSlotMatrices from solution;
     :Return SolverOutput;
     |Handler|
-    :Wrap as SolveResult;
-    :Write to context;
+    :Assemble SolveResult\n(SolverOutput + roster snapshot);
+    :Write to context via\nadd_solve_result(result);
     :Return CommandResult.ok;
 
 else (Read Cmd)
-    :Read SolveResult from context;
-    :Instantiate LLMPresenter\nwith SolveResult;
-    :Return CommandResult.ok\nwith result + presentation in data;
+    :Read SolveResult\nfrom context by label;
+    :Serialize to dict;
+    :Return CommandResult.ok\nwith data payload;
+
+    note right
+      Rendering is not Handler's concern.
+      AgentTools.show() reads context
+      directly and invokes ChartRenderer.
+    end note
 
 endif
 

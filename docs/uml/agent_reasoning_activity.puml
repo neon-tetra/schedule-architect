@@ -1,0 +1,123 @@
+@startuml agent_reasoning_activity
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+
+|AgentSession|
+|Anthropic / Haiku|
+|Anthropic / Sonnet|
+|Engine|
+|ChartRenderer|
+
+|AgentSession|
+start
+:Receive user message;
+:add_user_message();
+
+fork
+  :Build system prompt\n+ inject Memory state\n(queues, roster, solve registry);
+fork again
+  |Anthropic / Haiku|
+  :Classify message\n"command" or "question"?;
+end fork
+
+|AgentSession|
+
+if (classification == command?) then (yes)
+
+  :Call Haiku tool loop\nwith full context;
+
+  |Anthropic / Haiku|
+  :Receive prompt\n+ tool definitions;
+
+  repeat
+    :Reason;
+    :Emit tool_use block\n(solve, define, derive etc);
+
+    |Engine|
+    :Dispatch command;
+    :Read / write ScenarioContext;
+    :Return CommandResult;
+
+    note right
+      Named SolveResult written
+      to context registry.
+      Label is deterministic.
+    end note
+
+    |Anthropic / Haiku|
+    :Receive tool result;
+  repeat while (stop_reason == tool_use?) is (yes)
+  -> no;
+
+  :Return completed\ntool loop message;
+
+  |AgentSession|
+  :Append tool loop\nresults to messages;
+  :Hand off to Sonnet\nfor synthesis;
+
+  |Anthropic / Sonnet|
+  :Receive context\n+ tool results\n+ show() in tool list;
+  :Reason over results;
+  :Run magnitude check —\nis anything numerically\nsignificant enough to show?;
+  :Run delta check —\ndid something change\nthat warrants a visual?;
+
+else (no — qualitative)
+
+  |Anthropic / Sonnet|
+  :Receive prompt\n+ full context\n+ show() in tool list;
+  :Reason;
+
+endif
+
+note right
+  Orientation trigger:
+  user hasn't seen this yet.
+  Comparison trigger:
+  something just changed.
+  Detail trigger:
+  specific entity named.
+  Any trigger → show() candidate.
+end note
+
+if (show() warranted?) then (yes)
+  :Emit show() tool call\nwith result_label + chart_type;
+
+  |ChartRenderer|
+  :Receive show() call\nvia AgentTools closure;
+  :Read SolveResult\nfrom ScenarioContext by label;
+  :Render Plotly chart\nfor chart_type;
+
+  note right
+    chart_type is a closed vocabulary.
+    Agent picks from supported_charts().
+    Today: Chainlit element.
+    Tomorrow: dashboard panel.
+  end note
+
+  :Return ChartArtifact\nto Sonnet as tool result;
+
+  |Anthropic / Sonnet|
+  :Continue reasoning;
+
+else (no)
+endif
+
+:Compose narrative response;
+
+note right
+  Tutorial suffix if turn_count < TUTORIAL_TURNS.
+  Game loop mode otherwise.
+end note
+
+:Return final response text;
+
+|AgentSession|
+:Intercession check\n(about-me / stuck / out-of-scope);
+:add_assistant_message();
+:summarise() or trim();
+:Return to App / Chainlit;
+
+stop
+
+@enduml

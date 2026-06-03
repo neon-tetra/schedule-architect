@@ -25,9 +25,6 @@ legend top right
   | <<deferred>> class | Placeholder only     |
 endlegend
 
-' ─────────────────────────────────────────
-' PACKAGE: Commands
-' ─────────────────────────────────────────
 package "Commands" <<Rectangle>> {
 
     class DefineQueueProfile {
@@ -54,7 +51,7 @@ package "Commands" <<Rectangle>> {
         + entries : list[RosterEntry]
     }
 
-	class Solve {
+    class Solve {
         + type : Literal["solve"]
         + label : str | None
         note: label keys the result in the registry.\nDefaults to ISO timestamp if omitted.
@@ -63,9 +60,9 @@ package "Commands" <<Rectangle>> {
     class ReadResult {
         + type : Literal["read_result"]
         + label : str | None
-        note: None = current_result_key
+        note: None = current_result_key.\nReturns SolveResult data only —\nrendering is the Agent's concern.
     }
-	
+
     note bottom of DefineQueueProfile
         ModelCommand = Union[
           DefineQueueProfile,
@@ -78,9 +75,6 @@ package "Commands" <<Rectangle>> {
 
 }
 
-' ─────────────────────────────────────────
-' PACKAGE: Engine
-' ─────────────────────────────────────────
 package "Engine" <<Rectangle>> {
 
     class SolveResult {
@@ -112,20 +106,10 @@ package "Engine" <<Rectangle>> {
         + current_result_key : str | None
         --
         + solve_result : SolveResult | None
-        note: solve_result is a property returning\nsolve_results[current_result_key] or None.\nProvides backwards-compatible read access.
         + add_solve_result(result: SolveResult) : None
         + invalidate_solve_results() : None
         ~ is_ready_to_solve() : bool
     }
-
-    note right of ScenarioContext
-        invalidate_solve_results()
-        clears the registry and
-        current_result_key entirely.
-        add_solve_result() stores by
-        result.label and updates
-        current_result_key.
-    end note
 
     class Dispatcher {
         - _handler : Handler
@@ -146,39 +130,18 @@ package "Engine" <<Rectangle>> {
         <color:#999999>~ handle_read_context(cmd: ReadContext) : CommandResult</color>
     }
 
-    class LLMPresenter {
-        - _result : SolveResult
-        --
-        + present() : str
-        + present_json() : dict
-        + summary_header() : str
-        + shortfall_table() : str
-        <color:#999999>~ coverage_by_skill() : str</color>
-        <color:#999999>~ worst_periods() : str</color>
-    }
-
 }
 
-' ─────────────────────────────────────────
-' PACKAGE: Solver (external dependency)
-' ─────────────────────────────────────────
 package "Solver" <<Rectangle>> {
-
     class ModelBuilder {
         --
         + build_and_solve(roster: Roster, queues: dict[str, QueueProfile], demand: SlotMatrix) : SolverOutput
     }
-
 }
 
-' ─────────────────────────────────────────
-' RELATIONSHIPS
-' ─────────────────────────────────────────
 Dispatcher "1" *-- "1" Handler : owns
 Handler "1" --> "1" ScenarioContext : reads/writes
 Handler "1" --> "1" ModelBuilder : delegates solve to
-Handler "1" --> "1" LLMPresenter : instantiates
-Handler ..> SolveResult : assembles from SolverOutput\n+ roster snapshot
 Handler ..> SolveResult : assembles from SolverOutput
 Dispatcher ..> CommandResult : returns
 Handler ..> CommandResult : returns
