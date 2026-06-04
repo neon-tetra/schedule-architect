@@ -1,24 +1,40 @@
 # schedule-architect
 
-A workforce scheduling agent that translates natural language inputs into optimized shift schedules using a structured command engine and CP-SAT constraint programming.
+A conversational workforce planning agent for call centre operations. It introduces the user to a scheduling scenario, guides them through building and optimising a staffing model, and surfaces results as interactive charts — all through natural language.
 
 Designed architecture-first, built layer by layer.
 
 ---
 
+## What It Does
+
+Schedule Architect puts the user in the seat of a workforce planner working a real call centre scenario. The agent knows the domain, holds the model state, and helps them understand the tradeoffs.
+
+A typical session looks like this:
+
+> The agent opens with a structured welcome — here's the scenario, here's what we know, here's where to start.
+> The user directs the session: adjust roster headcount, change skill assignments, set service level targets.
+> The agent translates that into a structured model, runs the CP-SAT optimiser, and surfaces the results as charts and commentary directly in the conversation.
+> From there it's a loop — the agent identifies the worst coverage gaps, suggests what to change, the user adjusts, and the model re-solves. Each iteration is visible, reasoned, and grounded in the numbers.
+
+The goal isn't to produce a perfect schedule in one shot. It's to give a workforce planner a genuinely useful thinking partner.
+
+---
+
 ## Architecture
 
-The system is organized into five layers, designed before implementation and documented as living UML artifacts in `/docs`.
+The system is organised into six layers, designed before implementation and documented as living UML artifacts in `/docs`.
 
 ![Component Diagram](docs/architecture_component.png)
 
 | Layer | Responsibility |
 |---|---|
 | **Domain** | Core entities — skills, queue profiles, slot matrices, rosters |
-| **Engine** | Command dispatcher, handler, scenario context, and result presenter |
+| **Engine** | Command dispatcher, handler, scenario context, retrieval layer |
 | **Solver** | Erlang C demand derivation and CP-SAT model builder |
 | **Agent** | LLM session layer — prompt assembly, conversation management, tool wrappers |
-| **Caller** | Entry point — wires context, dispatcher, and agent session into a live REPL |
+| **Presentation** | Chart building — Plotly figures from retrieval results |
+| **Caller** | Entry point — wires context, dispatcher, and agent session into a live Chainlit app |
 
 Full design documents: [`/docs`](./docs)
 
@@ -26,7 +42,7 @@ Full design documents: [`/docs`](./docs)
 
 ## AI-Assisted Development
 
-This project was developed using a hybrid workflow: architecture-first design (UML), followed by iterative implementation using GitHub Copilot and agent-assisted scaffolding. All generated code was reviewed, tested, and integrated with full understanding of the system it sits in.
+This project was developed using a hybrid workflow: architecture-first design (UML), followed by iterative implementation using GitHub Copilot and agent-assisted scaffolding. All generated code was reviewed, understood, and integrated deliberately.
 
 This reflects how I work in real engineering environments — using AI tools to accelerate development while maintaining full ownership of architecture, correctness, and system behavior.
 
@@ -34,15 +50,16 @@ This reflects how I work in real engineering environments — using AI tools to 
 
 ## MVP Features
 
-- Define skills and queue profiles via structured commands
-- Derive Erlang C staffing requirements from call volume and SLA targets
+- Guided opening — scripted welcome sets the scenario before any API call is made
+- Guardrailed scenario — the user works within a defined call centre model, directing roster changes and targets through natural language
 - Define an agent roster from skill groups and headcounts
-- CP-SAT schedule optimization minimizing coverage shortfall
-- Solve result bundled as demand / supply / shortfall slot matrices
-- LLM-readable status retrieval via `QueryStatus` retrieval
-- Live conversational agent session via Anthropic Claude with full tool use
-- Prompt caching — static system prompt prefix cached across turns to minimize token cost
-- `chat.py` REPL entry point for interactive scenario building
+- Derive Erlang C staffing requirements from call volume, AHT, and SLA targets
+- CP-SAT schedule optimisation minimising coverage shortfall across all skills and intervals
+- Solve result surfaced as interactive Plotly charts, mid-conversation, as a side effect of the agent's tool loop
+- `QueryStatus` retrieval — agent orients itself each turn with a single call: roster, cost, and latest solve summary
+- Retrieval / tool / memory architecture following Anthropic's vocabulary — clean separation between state-mutating commands and read-only retrievals
+- Prompt caching — static system prompt prefix cached across turns to minimise token cost
+- Chainlit front end — charts and conversation in one interface
 
 ---
 
@@ -54,11 +71,11 @@ This reflects how I work in real engineering environments — using AI tools to 
 | Command dispatcher + handler | Bespoke constraint authoring via agent |
 | Erlang C derivation | Weighted and conditional shortfall penalties |
 | CP-SAT solve | Coverage ratio and floor constraints |
-| `QueryStatus` retrieval + `LLMPresenter` | Parameterizable objective function |
-| Shortfall table presentation | Batch scenario commands |
-| Agent session + tool use | Multi-scenario session management |
-| Prompt caching | Schedule types and shift templates |
-| Live conversational REPL | Full simulation and schedule evaluation |
+| `QueryStatus` retrieval | Parameterizable objective function |
+| Agent session + tool use | Define skills and queue profiles via natural language |
+| Prompt caching | Multi-scenario session management |
+| Guided conversational session | Schedule types and shift templates |
+| Chainlit front end + Plotly charts | Full simulation and schedule evaluation |
 
 ---
 
@@ -68,7 +85,7 @@ This reflects how I work in real engineering environments — using AI tools to 
 schedule-architect/
 │
 ├── main.py                         # Headless entry point (no agent)
-├── chat.py                         # Conversational agent REPL entry point
+├── chat.py                         # Chainlit entry point
 ├── requirements.txt
 │
 ├── domain/                         # Core data models (no dependencies)
@@ -79,12 +96,13 @@ schedule-architect/
 │   └── schedule.py                 # ScheduleType, SolveResult
 │
 ├── engine/                         # Orchestration layer
-│   ├── commands.py                 # ModelCommand union + command types
+│   ├── commands.py                 # ModelCommand union + command dataclasses
 │   ├── command_result.py           # CommandResult
+│   ├── retrieval.py                # QueryStatus, RetrievalResult, ModelQuery
 │   ├── context.py                  # ScenarioContext
-│   ├── dispatcher.py               # Dispatcher
+│   ├── dispatcher.py               # Dispatcher — dispatch() + retrieve()
 │   ├── handler.py                  # Handler
-│   ├── presenter.py                # LLMPresenter
+│   ├── presenter.py                # LLMPresenter (legacy ASCII presenter)
 │   └── solve_result.py             # SolveResult
 │
 ├── solver/                         # Optimisation layer
@@ -98,17 +116,21 @@ schedule-architect/
 │   ├── prompt_builder.py           # SystemPromptBuilder — static/dynamic sections + caching
 │   └── conversation.py             # ConversationManager — history + trim
 │
+├── presentation/                   # Presentation layer
+│   └── charts.py                   # ChartBuilder — Plotly figures from RetrievalResult
+│
 ├── scenarios/
 │   └── default.py                  # Default scenario definition
 │
 └── docs/
     └── uml/
+        ├── architecture_component.puml
         ├── domain_classes.puml
         ├── engine_classes.puml
         ├── solver_classes.puml
-        ├── dispatch_activity.puml
-        ├── agent_session.puml
-        └── agent_activity_classes.puml
+        ├── agent_classes.puml
+        ├── agent_reasoning_activity.puml
+        └── guided_session_activity.puml
 ```
 
 ---
@@ -124,14 +146,14 @@ python main.py
 # Conversational agent session
 $env:ANTHROPIC_API_KEY = "your_key_here"   # PowerShell
 # export ANTHROPIC_API_KEY="your_key_here" # bash
-python chat.py
+chainlit run chat.py
 ```
 
 ---
 
 ## V2 Vision
 
-The next major milestone is a **constraint template registry** — a bounded vocabulary of named, parameterizable constraint patterns that the agent can select, configure, and compose at runtime. Rather than generating arbitrary CP-SAT code, the agent fills in typed dataclass templates that map to known solver primitives. This keeps the model auditable and the agent's surface area well-defined, while enabling genuinely bespoke optimization problems to be authored through conversation.
+The next major milestone is a **constraint template registry** — a bounded vocabulary of named, parameterizable constraint patterns that the agent can select, configure, and compose at runtime. This moves the system from a guided scenario into a genuinely open workforce planning tool.
 
 Example targets:
 > *"There must be at least one photo agent starting at 8am every day"*
