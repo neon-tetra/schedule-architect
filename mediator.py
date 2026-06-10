@@ -2,6 +2,7 @@ import re
 import asyncio
 import chainlit as cl
 from anthropic import AsyncAnthropic
+from debug_logger import DebugLogger
 from events import Event, EventSource, EventType
 from agent_session import AgentSession
 #from scenario_context import ScenarioContext
@@ -15,7 +16,7 @@ anthropic_client = AsyncAnthropic()
 class MediatorLoop:
 
     def __init__(self, queue: asyncio.Queue):
-        self._queue          = queue
+        self._queue          = DebugLogger(queue) # wrap the queue with debug logging
         self._session        = AgentSession()
         self._active_message = None
         # self._context = ScenarioContext()
@@ -36,7 +37,7 @@ class MediatorLoop:
 
     # ── Anthropic streaming ──────────────────────────────────────────────
 
-    async def _stream_anthropic(self):
+    async def _stream_anthropic(self): #To do - we need to stop streaming at << and >> to capture those tags
         self._active_message = cl.Message(content="")
         await self._active_message.send()
         payload = self._session.build_payload()
