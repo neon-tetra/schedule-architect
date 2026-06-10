@@ -13,10 +13,10 @@ class EventType(Enum):
     USER_MESSAGE = "user_message"
 
     # Anthropic → Mediator
-    TEXT_DELTA    = "text_delta"
-    TOOL_USE      = "tool_use"
-    TURN_COMPLETE = "turn_complete"
-    STREAM_ERROR  = "stream_error"
+    STREAM_TOKEN   = "stream_token"
+    TOOL_REQUEST   = "tool_request"
+    FINAL_RESPONSE = "final_response"
+
 
 
 @dataclass
