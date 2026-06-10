@@ -1,0 +1,36 @@
+@startuml c4_component
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+LAYOUT_WITH_LEGEND()
+
+title schedule-architect: Component Diagram
+
+Person(user, "Workforce Planner", "Explores a staffing scenario through natural language")
+
+System_Ext(chainlit, "Chainlit Browser", "Renders conversation and charts. Stock Chainlit — no custom frontend.")
+System_Ext(anthropic, "Anthropic API", "LLM completions via AsyncAnthropic. Streaming, tool use, prompt caching.")
+
+System_Boundary(server, "Chainlit Server") {
+
+    Component(gateway, "Gateway", "Python / Chainlit hooks", "Owns on_chat_start and on_message. Captures all inbound events, tags them, and enqueues them. Spins up MediatorLoop as a concurrent task on session start.")
+
+    ComponentQueue(queue, "Event Queue", "asyncio.Queue", "In-process queue. Decouples event capture from event handling. All inbound events pass through here — user messages, stream tokens, tool requests, turn completions.")
+
+    Component(mediator, "Mediator", "Python / asyncio", "Consumes the event queue. Dispatches each event to the appropriate handler. Owns the Anthropic streaming tool loop.")
+
+    Component(domain, "Domain & Business Logic", "Python", "Handles all events dispatched by Mediator. Manages conversation state, prompt assembly, tool execution, and optimisation. Calls Chainlit and Anthropic directly for outbound communication. Internal structure TBD.")
+
+}
+
+Rel(user, chainlit, "Interacts with", "HTTPS / WebSocket")
+Rel(chainlit, gateway, "on_message / on_chat_start", "Chainlit hook")
+Rel(anthropic, gateway, "tool request / stream / response text", "REST API Response")
+Rel(gateway, queue, "queue.put(Event)", "asyncio")
+Rel(queue, mediator, "queue.get(Event)", "asyncio")
+Rel(mediator, domain, "dispatch(event)")
+Rel(domain, anthropic, "messages + tools / tool_result", "HTTPS stream")
+Rel(domain, chainlit, "stream token / render chart", "Chainlit API")
+
+@enduml

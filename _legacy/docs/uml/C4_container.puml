@@ -1,0 +1,22 @@
+@startuml
+!include docs/uml/lib/C4_Container.puml
+
+' C4 Level 2 — Container
+
+title schedule-architect: Container Diagram
+
+Person(user, "Workforce Planner", "Explores a staffing scenario through natural language")
+
+System_Boundary(sa, "schedule-architect") {
+    Container(browser, "Browser Client", "Chainlit / WebSocket", "Renders conversation, charts, and agent responses. Stock Chainlit — no custom frontend code.")
+    Container(server, "Chainlit Server", "Python", "Hosts the agent session, command engine, CP-SAT solver, and Erlang C demand model. All application logic lives here.")
+}
+
+System_Ext(anthropic, "Anthropic API", "AsyncAnthropic / claude-sonnet. LLM reasoning, tool use, and prompt caching.")
+
+Rel(user, browser, "Interacts with", "HTTPS / WebSocket")
+Rel(browser, server, "Sends messages, receives responses and charts", "WebSocket")
+Rel(server, anthropic, "Sends conversation turns, receives completions", "HTTPS / REST")
+
+@enduml
+

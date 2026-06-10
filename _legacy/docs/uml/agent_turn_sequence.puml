@@ -1,0 +1,69 @@
+@startuml agent_turn_sequence
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+skinparam sequenceArrowColor #333333
+skinparam sequenceLifeLineBorderColor #555555
+skinparam sequenceParticipantBackgroundColor #FAFAFA
+skinparam sequenceParticipantBorderColor #555555
+skinparam sequenceActorBackgroundColor #FAFAFA
+skinparam sequenceActorBorderColor #555555
+skinparam noteBorderColor #555555
+skinparam noteBackgroundColor #FAFAFA
+
+actor "User" as User
+participant "Chainlit" as Chainlit
+participant "AgentSession" as Session
+participant "AgentTools" as Tools
+participant "Dispatcher" as Dispatcher
+participant "Anthropic API" as Anthropic
+
+User -> Chainlit : natural language
+Chainlit -> Session : run_turn(user_message)
+Session -> Session : build system prompt\n(static prefix + dynamic state)
+Session -> Anthropic : messages + system_prompt + tools
+note right of Anthropic
+  static prefix is cache-eligible —
+  only dynamic suffix is re-sent
+  each turn
+end note
+
+loop until end_turn
+
+    Anthropic --> Session : tool_use block
+
+    alt state-mutating command
+        Session -> Tools : invoke tool closure
+        Tools -> Dispatcher : dispatch(ModelCommand)
+        Dispatcher --> Tools : CommandResult
+        Tools --> Session : JSON result
+
+    else read-only retrieval
+        Session -> Tools : invoke tool closure
+        Tools -> Dispatcher : retrieve(ModelQuery)
+        Dispatcher --> Tools : RetrievalResult
+        Tools --> Session : JSON result
+
+    else show chart
+        Session -> Tools : invoke show closure
+        Tools -> Dispatcher : retrieve(QueryStatus)
+        Dispatcher --> Tools : RetrievalResult
+        Tools -> Tools : ChartBuilder.build()
+        Tools -> Chainlit : cl.Message(Plotly figure)
+        note right of Chainlit
+          chart sent as side effect —
+          not stored in conversation
+          history
+        end note
+        Tools --> Session : {"chart_sent": true}
+    end
+
+    Session -> Anthropic : tool_result
+
+end
+
+Anthropic --> Session : final text response
+Session --> Chainlit : response text
+Chainlit --> User : text + any charts already sent
+
+@enduml

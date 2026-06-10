@@ -1,0 +1,71 @@
+@startuml seq_agent_turn
+' C4 Supplement — Agent Turn Sequence (mediator architecture)
+
+skinparam backgroundColor #D3D3D3
+skinparam defaultFontName Segoe UI
+skinparam sequenceArrowColor #333333
+skinparam sequenceLifeLineBorderColor #555555
+skinparam sequenceParticipantBackgroundColor #FAFAFA
+skinparam sequenceParticipantBorderColor #555555
+skinparam sequenceActorBackgroundColor #FAFAFA
+skinparam sequenceActorBorderColor #555555
+skinparam noteBorderColor #555555
+skinparam noteBackgroundColor #FAFAFA
+
+participant "Chainlit" as Chainlit
+participant "ServerSession" as Session
+participant "Queue" as Queue
+participant "MediatorLoop" as Mediator
+participant "Anthropic API" as Anthropic
+
+== Initialization (on_chat_start) ==
+
+Chainlit -> Session : on_chat_start()
+Session -> Queue : create asyncio.Queue()
+Session -> Mediator : create_task(mediator_loop)
+note right of Mediator
+  runs concurrently for the
+  lifetime of the session —
+  blocks on queue.get() between turns
+end note
+Session --> Chainlit : session ready
+
+== User Turn (on_message) ==
+
+Chainlit -> Session : on_message(message)
+Session -> Queue : queue.put(Event(CHAINLIT, USER_MESSAGE, text))
+note right of Queue
+  on_message returns immediately —
+  Chainlit is not blocked
+end note
+Session --> Chainlit : return
+
+== Mediator Handles Event ==
+
+Queue -> Mediator : event = await queue.get()
+Mediator -> Mediator : dispatch to handler
+
+== Anthropic Tool Loop ==
+
+Mediator -> Anthropic : messages + system + tools
+
+loop until end_turn
+
+    Anthropic --> Mediator : tool_use
+    Mediator -> Queue : queue.put(Event(ANTHROPIC, TOOL_USE, block))
+    Queue -> Mediator : event = await queue.get()
+    Mediator -> Anthropic : tool_result
+
+    Anthropic --> Mediator : text delta
+    Mediator -> Queue : queue.put(Event(ANTHROPIC, TEXT_DELTA, token))
+    Queue -> Mediator : event = await queue.get()
+
+end
+
+Anthropic --> Mediator : final message (stop_reason = end_turn)
+Mediator -> Queue : queue.put(Event(ANTHROPIC, TURN_COMPLETE, message))
+Queue -> Mediator : event = await queue.get()
+Mediator -> Mediator : append to conversation history
+Mediator -> Mediator : await queue.get()\n(blocks until next user message)
+
+@enduml
