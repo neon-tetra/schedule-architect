@@ -1,4 +1,7 @@
+import re
 from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
+
+SUMMARY_TAG = r'<<summary>>(.*?)<</summary>>'
 
 class AgentSession:
 
@@ -6,7 +9,7 @@ class AgentSession:
         self._messages = []
         self._turn     = 0
 
-    # ── Public interface ───────────────────────────────────────────────────
+    # ── Public interface ──────────────────────────────────────────────
 
     @property
     def current_turn(self) -> int:
@@ -20,6 +23,7 @@ class AgentSession:
         })
 
     def add_assistant_message(self, text: str):
+        """Store assistant turn. Receives summary text only — full response already streamed to UI."""
         self._messages.append({
             "role":    "assistant",
             "content": text
@@ -44,8 +48,13 @@ class AgentSession:
             "tools":      TOOL_SCHEMAS
         }
 
-    # ── Internal ───────────────────────────────────────────────────────────
+    # ── Internal ───────────────────────────────────────────────────────
 
     def _build_system_prompt(self) -> str:
         # stub — will be tutorial-path-aware via current_turn
-        return "You are schedule-architect, a workforce planning assistant."
+        return (
+            "You are schedule-architect, a workforce planning assistant.\n\n"
+            "End every response with a <<summary>>one-sentence recap of what you said "
+            "and any actions taken<</summary>> tag. This tag will be stripped from the "
+            "display and used only to compress conversation history."
+        )

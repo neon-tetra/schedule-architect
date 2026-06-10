@@ -34,7 +34,7 @@ class MediatorLoop:
             if handler:
                 await handler(event)
 
-    # ── Anthropic streaming ────────────────────────────────────────────────
+    # ── Anthropic streaming ──────────────────────────────────────────────
 
     async def _stream_anthropic(self):
         self._active_message = cl.Message(content="")
@@ -52,7 +52,7 @@ class MediatorLoop:
                         data={"stop_reason": chunk.delta.stop_reason}
                     ))
 
-    # ── Handlers ───────────────────────────────────────────────────────────
+    # ── Handlers ─────────────────────────────────────────────────────
 
     async def _handle_user_message(self, event: Event):
         self._session.add_user_message(event.data["text"])
@@ -68,6 +68,14 @@ class MediatorLoop:
         await self._stream_anthropic()
 
     async def _handle_final_response(self, event: Event):
+        full_text = self._active_message.content
+        match = re.search(r'<<summary>>(.*?)<</summary>>', full_text, re.DOTALL)
+        if match:
+            summary    = match.group(1).strip()
+            clean_text = re.sub(r'\s*<<summary>>.*?<</summary>>', '', full_text, flags=re.DOTALL).strip()
+            self._active_message.content = clean_text
+        else:
+            summary = full_text
         await self._active_message.update()
-        self._session.add_assistant_message(self._active_message.content)
+        self._session.add_assistant_message(summary)
         self._active_message = None
