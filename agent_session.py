@@ -1,13 +1,24 @@
 import re
+from enum import IntEnum
 from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
+from prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
 
 SUMMARY_TAG = r'<<summary>>(.*?)<</summary>>'
+
+
+class Stage(IntEnum):
+    BEGINNING = 1
+    MIDDLE    = 2
+    FINAL     = 3
+
 
 class AgentSession:
 
     def __init__(self):
-        self._messages = []
-        self._turn     = 0
+        self._messages          = []
+        self._turn              = 0
+        self._stage             = Stage.BEGINNING
+        self._scenario_desc     = self._build_scenario_description()
 
     # ── Public interface ──────────────────────────────────────────────
 
@@ -15,12 +26,25 @@ class AgentSession:
     def current_turn(self) -> int:
         return self._turn
 
+    @property
+    def stage(self) -> Stage:
+        return self._stage
+
+    @stage.setter
+    def stage(self, value: Stage):
+        self._stage = value
+
     def add_user_message(self, text: str):
         self._turn += 1
         self._messages.append({
             "role":    "user",
             "content": text
         })
+
+        if self._turn >= 5:
+            self._stage = Stage.FINAL
+        elif self._turn >= 3:
+            self._stage = Stage.MIDDLE
 
     def add_assistant_message(self, text: str):
         """Store assistant turn. Receives summary text only — full response already streamed to UI."""
@@ -48,13 +72,56 @@ class AgentSession:
             "tools":      TOOL_SCHEMAS
         }
 
-    # ── Internal ───────────────────────────────────────────────────────
+    # ── Prompt assembly ───────────────────────────────────────────────
 
-    def _build_system_prompt(self) -> str:
-        # stub — will be tutorial-path-aware via current_turn
-        return (
-            "You are schedule-architect, a workforce planning assistant.\n\n"
-            "End every response with a <<summary>>one-sentence recap of what you said "
-            "and any actions taken<</summary>> tag. This tag will be stripped from the "
-            "display and used only to compress conversation history."
-        )
+    def _build_system_prompt(self) -> list[dict]:
+        sections = [
+            self._overview(),
+            self._scenario_desc,
+            self._role_final(),
+        ]
+        if self._stage <= Stage.MIDDLE:
+            sections.append(self._role_middle())
+        if self._stage == Stage.BEGINNING:
+            sections.append(self._role_beginning())
+
+        static  = "\n\n".join(sections)
+        dynamic = "\n\n".join([
+            self._tool_list(),
+            self._recent_tool_results(),
+        ])
+        return self._as_cached_blocks(static, dynamic)
+
+    def _as_cached_blocks(self, static: str, dynamic: str) -> list[dict]:
+        return [
+            {"type": "text", "text": static,  "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": dynamic},
+        ]
+
+    # ── Static prompt sections (built once or stage-invariant) ────────
+
+    def _build_scenario_description(self) -> str:
+        # stub — will derive from scenario config; returns static placeholder for now
+        return SCENARIO_DESCRIPTION
+
+    def _overview(self) -> str:
+        return OVERVIEW
+
+    def _role_final(self) -> str:
+        return ROLE_FINAL
+
+    def _role_middle(self) -> str:
+        return ROLE_MIDDLE
+
+    def _role_beginning(self) -> str:
+        return ROLE_BEGINNING
+
+    # ── Dynamic prompt sections (rebuilt each turn) ───────────────────
+
+    def _tool_list(self) -> str:
+        # stub — will derive from toolkit object
+        return "[tool list]"
+
+    def _recent_tool_results(self) -> str:
+        # stub — will derive from recent tool call history
+        return "[recent tool results]"
