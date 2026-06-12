@@ -66,6 +66,13 @@ class AgentSession:
             }]
         })
 
+    def handle_tool_use(self, tool_use_id: str, tool_name: str, tool_input: dict, full_content: list):
+        # Deliberately sync/blocking — tool execution is fast (no external I/O expected).
+        # If that changes (e.g. solver becomes async), make this async def and await accordingly.
+        self.add_assistant_tool_use(full_content)
+        result = self._toolkit.execute(tool_name, tool_input)
+        self.add_tool_result(tool_use_id, result)
+
     def build_payload(self) -> dict:
         return {
             "model":      MODEL,
