@@ -1,6 +1,5 @@
 import re
 from enum import IntEnum
-from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
 from prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
 from scenario_context import ScenarioContext
 from toolkit import Toolkit
@@ -105,7 +104,7 @@ class AgentSession:
 
     def _build_scenario_description(self) -> str:
         # stub — will derive from scenario config; returns static placeholder for now
-        return SCENARIO_DESCRIPTION
+        return self._context.prompt_summary() + "\n\n" + SCENARIO_DESCRIPTION
 
     def _overview(self) -> str:
         return OVERVIEW

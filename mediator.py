@@ -8,7 +8,6 @@ from agent_session import AgentSession
 #from scenario_context import ScenarioContext
 #from solver import Solver
 #from presenter import Presenter
-from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
 from scenario_context import ScenarioContext
 from toolkit import Toolkit
 anthropic_client = AsyncAnthropic()
@@ -101,10 +100,4 @@ class MediatorLoop:
         await self._active_message.update()
         self._session.add_assistant_message(summary)
         self._active_message = None
-        
-    def add_assistant_tool_use(self, content: list):
-        """Store assistant turn that ended in a tool use — preserves full content block."""
-        self._messages.append({
-            "role":    "assistant",
-            "content": content   # raw content list from Anthropic, tool_use block intact
-        })
+

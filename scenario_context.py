@@ -33,7 +33,7 @@ class ScenarioContext:
 
     def prompt_summary(self) -> str:
         lines = ["## Current Roster"]
-        for e in self.roster:
+        for e in self.roster.entries:
             lines.append(f"  {' + '.join(e.skills)}: {e.count} agents")
 
         lines.append("\n## Recent Solves")
