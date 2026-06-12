@@ -34,6 +34,11 @@ class Toolkit:
     def __init__(self, context: ScenarioContext):
         self._context = context
 
+    # TODO: (A) enrich this output with queue profile data and solve history formatting
+    #       (B) consider a separate condensed summary variant for mid-session use
+    def get_detailed_summary(self) -> str:
+        return self._context.get_detailed_summary()
+
     def get_tool_list(self) -> list[dict]:
         return [
             {
