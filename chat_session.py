@@ -14,7 +14,7 @@ class ChatSession:
         context  = ScenarioContext(DEFAULT_PROFILES, DEFAULT_ROSTER)
         toolkit  = Toolkit(context)
         session  = AgentSession(context, toolkit)
-        mediator = MediatorLoop(self._queue, session, context, toolkit)
+        mediator = MediatorLoop(self._queue, session, context)
         asyncio.create_task(mediator.run())
 
     async def send(self, text: str):

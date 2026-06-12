@@ -9,17 +9,15 @@ from agent_session import AgentSession
 #from solver import Solver
 #from presenter import Presenter
 from scenario_context import ScenarioContext
-from toolkit import Toolkit
 anthropic_client = AsyncAnthropic()
 
 
 class MediatorLoop:
 
-    def __init__(self, queue: asyncio.Queue, session: AgentSession, context: ScenarioContext, toolkit: Toolkit):
+    def __init__(self, queue: asyncio.Queue, session: AgentSession, context: ScenarioContext):
         self._queue   = DebugLogger(queue)
         self._session = session
         self._context = context
-        self._toolkit = toolkit
         # self._context = ScenarioContext()
         # self._solver  = Solver()
         # self._presenter = Presenter()
@@ -82,10 +80,7 @@ class MediatorLoop:
         tool_use_id  = event.data["tool_use_id"]
         full_content = event.data["full_content"]
 
-        self._session.add_assistant_tool_use(full_content)
-
-        result = self._toolkit.execute(tool_name, tool_input)
-        self._session.add_tool_result(tool_use_id, result)
+        self._session.handle_tool_use(tool_use_id, tool_name, tool_input, full_content)
         await self._stream_anthropic()
 
     async def _handle_final_response(self, event: Event):
@@ -100,4 +95,3 @@ class MediatorLoop:
         await self._active_message.update()
         self._session.add_assistant_message(summary)
         self._active_message = None
-
