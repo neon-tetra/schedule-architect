@@ -13,10 +13,12 @@ class ChatSession:
         self._queue    = asyncio.Queue()
         context  = ScenarioContext(DEFAULT_PROFILES, DEFAULT_ROSTER)
         toolkit  = Toolkit(context)
-        session  = AgentSession(context, toolkit)
+        session  = AgentSession(toolkit)
         mediator = MediatorLoop(self._queue, session, context)
-        asyncio.create_task(mediator.run())
-
+        asyncio.create_task(mediator.run()) #One more dependency issue to clean up later -
+        #Toolkit has a context, session has a toolkit, mediator has a session - why does mediator also need a context
+        #Something could be simplified 
+        
     async def send(self, text: str):
         await self._queue.put(Event(
             source=EventSource.CHAINLIT,

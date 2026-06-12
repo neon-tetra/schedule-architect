@@ -1,7 +1,6 @@
 import re
 from enum import IntEnum
 from prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
-from scenario_context import ScenarioContext
 from toolkit import Toolkit
 MODEL      = "claude-opus-4-5"
 MAX_TOKENS = 8096
@@ -15,13 +14,15 @@ class Stage(IntEnum):
 
 
 class AgentSession:
-    def __init__(self, context: ScenarioContext, toolkit: Toolkit):
-        self._context           = context
+    def __init__(self, toolkit: Toolkit):
         self._messages          = []
         self._turn              = 0
         self._stage             = Stage.BEGINNING
-        self._scenario_desc     = self._build_scenario_description()
         self._toolkit           = toolkit
+        # Eagerly loaded at session start via toolkit — locks starting conditions
+        # into the static (cached) section of the system prompt. This is intentional:
+        # the result of a dynamic lookup at init time, not recomputed each turn.
+        self._scenario_desc     = self._build_scenario_description()
     # ── Public interface ──────────────────────────────────────────────
 
     @property
@@ -111,7 +112,7 @@ class AgentSession:
 
     def _build_scenario_description(self) -> str:
         # stub — will derive from scenario config; returns static placeholder for now
-        return self._context.prompt_summary() + "\n\n" + SCENARIO_DESCRIPTION
+        return self._toolkit.get_detailed_summary() + "\n\n" + SCENARIO_DESCRIPTION
 
     def _overview(self) -> str:
         return OVERVIEW
