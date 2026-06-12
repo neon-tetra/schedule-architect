@@ -2,6 +2,7 @@ import re
 from enum import IntEnum
 from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
 from prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
+from scenario_context import ScenarioContext
 
 SUMMARY_TAG = r'<<summary>>(.*?)<</summary>>'
 
@@ -14,7 +15,8 @@ class Stage(IntEnum):
 
 class AgentSession:
 
-    def __init__(self):
+    def __init__(self, context: ScenarioContext):
+        self._context           = context
         self._messages          = []
         self._turn              = 0
         self._stage             = Stage.BEGINNING

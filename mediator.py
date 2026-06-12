@@ -9,16 +9,17 @@ from agent_session import AgentSession
 #from solver import Solver
 #from presenter import Presenter
 from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
+from scenario_context import ScenarioContext
 
 anthropic_client = AsyncAnthropic()
 
 
 class MediatorLoop:
 
-    def __init__(self, queue: asyncio.Queue):
-        self._queue          = DebugLogger(queue) # wrap the queue with debug logging
-        self._session        = AgentSession()
-        self._active_message = None
+    def __init__(self, queue: asyncio.Queue, session: AgentSession, context: ScenarioContext):
+        self._queue   = DebugLogger(queue)
+        self._session = session
+        self._context = context
         # self._context = ScenarioContext()
         # self._solver  = Solver()
         # self._presenter = Presenter()
