@@ -10,16 +10,17 @@ from agent_session import AgentSession
 #from presenter import Presenter
 from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
 from scenario_context import ScenarioContext
-
+from toolkit import Toolkit
 anthropic_client = AsyncAnthropic()
 
 
 class MediatorLoop:
 
-    def __init__(self, queue: asyncio.Queue, session: AgentSession, context: ScenarioContext):
+    def __init__(self, queue: asyncio.Queue, session: AgentSession, context: ScenarioContext, toolkit: Toolkit):
         self._queue   = DebugLogger(queue)
         self._session = session
         self._context = context
+        self._toolkit = toolkit
         # self._context = ScenarioContext()
         # self._solver  = Solver()
         # self._presenter = Presenter()
@@ -38,21 +39,37 @@ class MediatorLoop:
 
     # ── Anthropic streaming ──────────────────────────────────────────────
 
-    async def _stream_anthropic(self): #To do - we need to stop streaming at << and >> to capture those tags
+    async def _stream_anthropic(self):
         self._active_message = cl.Message(content="")
         await self._active_message.send()
         payload = self._session.build_payload()
         async with anthropic_client.messages.stream(**payload) as stream:
             async for chunk in stream:
                 if chunk.type == "content_block_delta" and chunk.delta.type == "text_delta":
-                    # write directly — bypasses queue so run() stays unblocked
                     await self._active_message.stream_token(chunk.delta.text)
                 elif chunk.type == "message_delta":
-                    await self._queue.put(Event(
-                        source=EventSource.ANTHROPIC,
-                        type=EventType.FINAL_RESPONSE,
-                        data={"stop_reason": chunk.delta.stop_reason}
-                    ))
+                    if chunk.delta.stop_reason == "tool_use":
+                        full_message = await stream.get_final_message()
+                        tool_block = next(
+                            b for b in full_message.content
+                            if b.type == "tool_use"
+                        )
+                        await self._queue.put(Event(
+                            source=EventSource.ANTHROPIC,
+                            type=EventType.TOOL_REQUEST,
+                            data={
+                                "tool_name":    tool_block.name,
+                                "tool_use_id":  tool_block.id,
+                                "input":        tool_block.input,
+                                "full_content": full_message.content,
+                            }
+                        ))
+                    else:
+                        await self._queue.put(Event(
+                            source=EventSource.ANTHROPIC,
+                            type=EventType.FINAL_RESPONSE,
+                            data={"stop_reason": chunk.delta.stop_reason}
+                        ))
 
     # ── Handlers ─────────────────────────────────────────────────────
 
@@ -61,11 +78,14 @@ class MediatorLoop:
         await self._stream_anthropic()
 
     async def _handle_tool_request(self, event: Event):
-        tool_name   = event.data["tool_name"]
-        tool_input  = event.data["input"]
-        tool_use_id = event.data["tool_use_id"]
-        # stub — route to appropriate object based on tool_name
-        result = {}
+        tool_name    = event.data["tool_name"]
+        tool_input   = event.data["input"]
+        tool_use_id  = event.data["tool_use_id"]
+        full_content = event.data["full_content"]
+
+        self._session.add_assistant_tool_use(full_content)
+
+        result = self._toolkit.execute(tool_name, tool_input)
         self._session.add_tool_result(tool_use_id, result)
         await self._stream_anthropic()
 
@@ -81,3 +101,10 @@ class MediatorLoop:
         await self._active_message.update()
         self._session.add_assistant_message(summary)
         self._active_message = None
+        
+    def add_assistant_tool_use(self, content: list):
+        """Store assistant turn that ended in a tool use — preserves full content block."""
+        self._messages.append({
+            "role":    "assistant",
+            "content": content   # raw content list from Anthropic, tool_use block intact
+        })

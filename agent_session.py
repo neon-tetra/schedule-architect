@@ -3,9 +3,11 @@ from enum import IntEnum
 from config import MODEL, MAX_TOKENS, TOOL_SCHEMAS
 from prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
 from scenario_context import ScenarioContext
+from toolkit import Toolkit
+MODEL      = "claude-opus-4-5"
+MAX_TOKENS = 8096
 
 SUMMARY_TAG = r'<<summary>>(.*?)<</summary>>'
-
 
 class Stage(IntEnum):
     BEGINNING = 1
@@ -14,14 +16,13 @@ class Stage(IntEnum):
 
 
 class AgentSession:
-
-    def __init__(self, context: ScenarioContext):
+    def __init__(self, context: ScenarioContext, toolkit: Toolkit):
         self._context           = context
         self._messages          = []
         self._turn              = 0
         self._stage             = Stage.BEGINNING
         self._scenario_desc     = self._build_scenario_description()
-
+        self._toolkit           = toolkit
     # ── Public interface ──────────────────────────────────────────────
 
     @property
@@ -55,13 +56,13 @@ class AgentSession:
             "content": text
         })
 
-    def add_tool_result(self, tool_use_id: str, result: dict):
+    def add_tool_result(self, tool_use_id: str, result: str):  # str not dict
         self._messages.append({
             "role": "user",
             "content": [{
                 "type":        "tool_result",
                 "tool_use_id": tool_use_id,
-                "content":     result
+                "content":     result   # string, Anthropic is happy
             }]
         })
 
@@ -71,7 +72,7 @@ class AgentSession:
             "max_tokens": MAX_TOKENS,
             "system":     self._build_system_prompt(),
             "messages":   self._messages,
-            "tools":      TOOL_SCHEMAS
+            "tools":      self._toolkit.get_tool_list()  
         }
 
     # ── Prompt assembly ───────────────────────────────────────────────
@@ -127,3 +128,9 @@ class AgentSession:
     def _recent_tool_results(self) -> str:
         # stub — will derive from recent tool call history
         return "[recent tool results]"
+    def add_assistant_tool_use(self, content: list):
+        """Store assistant turn that ended in a tool use — preserves full content block."""
+        self._messages.append({
+            "role":    "assistant",
+            "content": content   # raw content list from Anthropic, tool_use block intact
+        })
