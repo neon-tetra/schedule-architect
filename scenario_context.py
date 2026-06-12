@@ -31,7 +31,7 @@ class ScenarioContext:
 
     # ── Dynamic prompt content ────────────────────────────────────────────────
 
-    def prompt_summary(self) -> str:
+    def get_detailed_summary(self) -> str:
         lines = ["## Current Roster"]
         for e in self.roster.entries:
             lines.append(f"  {' + '.join(e.skills)}: {e.count} agents")

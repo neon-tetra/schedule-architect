@@ -13,7 +13,7 @@ class ChatSession:
         self._queue    = asyncio.Queue()
         context  = ScenarioContext(DEFAULT_PROFILES, DEFAULT_ROSTER)
         toolkit  = Toolkit(context)
-        session  = AgentSession(context, toolkit)
+        session  = AgentSession(toolkit)
         mediator = MediatorLoop(self._queue, session, context, toolkit)
         asyncio.create_task(mediator.run())
 
