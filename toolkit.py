@@ -119,8 +119,7 @@ class Toolkit:
             {p.skill_id: p for p in self._context.profiles}
         )
         solves_str = "\n".join(
-            f"  {r.run_id}: '{r.label}' | {r.total_agents} agents | "
-            f"${r.monthly_cost:,.0f}/mo | {r.coverage_pct:.1f}% coverage"
+            f"  {r.run_id}: '{r.label}'"
             for r in self._context.recent_solves()
         ) or "No solves yet."
 
