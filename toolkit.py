@@ -1,7 +1,10 @@
 import json
 from pydantic import BaseModel
 from scenario_context import ScenarioContext
-from domain import RosterEntry, Roster
+from domain import RosterEntry, Roster, SolveResult
+from erlang import ErlangC
+from model_builder import ModelBuilder
+from slot_matrix import SlotMatrix
 
 # ── Input DTOs ────────────────────────────────────────────────────────────────
 
@@ -104,9 +107,40 @@ class Toolkit:
         return self._status().to_tool_string()
 
     def _run_solve(self, inp: RunSolveInput) -> str:
-        # stub — solver call goes here, result stored in context
         # NOTE: solver is sync — CP-SAT solves in <100ms, no async needed
         run_id = self._context.next_run_id()
+        queues = {p.skill_id: p for p in self._context.profiles}
+
+        demand_values: dict[tuple[int, int, str], int] = {}
+        for profile in self._context.profiles:
+            curve = ErlangC.requirements_curve(env=profile)
+            demand_values.update(curve.values)
+        demand = SlotMatrix(label="demand", values=demand_values)
+
+        result = ModelBuilder().build_and_solve(
+            roster=self._context.roster,
+            queues=queues,
+            demand=demand,
+        )
+
+        demand_total = result.demand.sum()
+        shortfall_total = result.shortfall.sum()
+        coverage_pct = (
+            ((demand_total - shortfall_total) / demand_total) * 100.0
+            if demand_total > 0
+            else 100.0
+        )
+
+        self._context.add_solve(
+            SolveResult(
+                run_id=run_id,
+                label=inp.label,
+                total_agents=self._context.roster.total_agents,
+                monthly_cost=self._context.roster.total_monthly_cost(queues),
+                coverage_pct=coverage_pct,
+                raw=result.model_dump(),
+            )
+        )
         return self._status(run_id=run_id, label=inp.label).to_tool_string()
 
     def _query_status(self) -> str:
