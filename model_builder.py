@@ -41,7 +41,7 @@ class ModelBuilder:
         #    shifts_on_day[a, d] = sum(works[a, d, sh]) for all sh
         #    shifts_in_week[a] = sum(works[a, d, sh]) for all d, sh
         #
-        # 5. Auxillary Variables:
+        # 5. Auxiliary Variables:
         #    shortfall[d, sl, sk] = max(0, demand[d, sl, sk] - coverage[d, sl, sk])
         #
         # 6. Constraints:
@@ -58,7 +58,7 @@ class ModelBuilder:
         # 1. Configuration
         # TODO: move hardcoded config (VALID_SHIFT_STARTS, SHIFT_DURATION_SLOTS etc.) to ScenarioContext
         AGENT_UPPER_BOUND = 20
-        VALID_SHIFT_STARTS = [8, 9, 10, 11]  # in hours, corresponds to slots 16, 18, 20, 22
+        VALID_SHIFT_STARTS = [8, 9, 10, 11]  # in hours; shift * 2 below maps these to slots 16, 18, 20, 22
         SHIFT_DURATION_SLOTS = 17
         DAYS = range(0, 7)
         SLOTS = range(0, 48)
@@ -103,7 +103,7 @@ class ModelBuilder:
         def shifts_in_week(agent_id):
             return LinearExpr.Sum(var_registry.query(type="works", agent=agent_id))
 
-        # 5. Auxillary Variables
+        # 5. Auxiliary Variables
         for day in DAYS:
             for slot in SLOTS:
                 for skill in skills:
