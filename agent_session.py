@@ -96,10 +96,7 @@ class AgentSession:
             sections.append(self._role_beginning())
 
         static  = "\n\n".join(sections)
-        dynamic = "\n\n".join([
-            self._tool_list(),
-            self._recent_tool_results(),
-        ])
+        dynamic = self._recent_solves()
         return self._as_cached_blocks(static, dynamic)
 
     def _as_cached_blocks(self, static: str, dynamic: str) -> list[dict]:
@@ -128,13 +125,8 @@ class AgentSession:
 
     # ── Dynamic prompt sections (rebuilt each turn) ───────────────────
 
-    def _tool_list(self) -> str:
-        # stub — will derive from toolkit object
-        return "[tool list]"
-
-    def _recent_tool_results(self) -> str:
-        # stub — will derive from recent tool call history
-        return "[recent tool results]"
+    def _recent_solves(self) -> str:
+        return self._toolkit.get_recent_solves_summary()
     def add_assistant_tool_use(self, content: list):
         """Store assistant turn that ended in a tool use — preserves full content block."""
         self._messages.append({
