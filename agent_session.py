@@ -65,6 +65,14 @@ class AgentSession:
                 "content":     result   # string, Anthropic is happy
             }]
         })
+        print(f"Added tool result to messages: {tool_use_id} → {result}")
+
+    def add_assistant_tool_use(self, content: list):
+        """Store assistant turn that ended in a tool use — preserves full content block."""
+        self._messages.append({
+            "role":    "assistant",
+            "content": content   # raw content list from Anthropic, tool_use block intact
+        })
 
     def handle_tool_use(self, tool_use_id: str, tool_name: str, tool_input: dict, full_content: list) -> str:
         # Deliberately sync/blocking — tool execution is fast (no external I/O expected).
@@ -129,9 +137,4 @@ class AgentSession:
     def _recent_solves(self) -> str:
         return self._toolkit.get_recent_solves_summary()
 
-    def add_assistant_tool_use(self, content: list):
-        """Store assistant turn that ended in a tool use — preserves full content block."""
-        self._messages.append({
-            "role":    "assistant",
-            "content": content   # raw content list from Anthropic, tool_use block intact
-        })
+
