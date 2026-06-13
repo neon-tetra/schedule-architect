@@ -9,6 +9,7 @@ from agent_session import AgentSession
 #from solver import Solver
 #from presenter import Presenter
 from scenario_context import ScenarioContext
+anthropoc_client = AsyncAnthropic()
 anthropic_client = AsyncAnthropic()
 
 
@@ -80,7 +81,8 @@ class MediatorLoop:
         tool_use_id  = event.data["tool_use_id"]
         full_content = event.data["full_content"]
 
-        self._session.handle_tool_use(tool_use_id, tool_name, tool_input, full_content)
+        result = self._session.handle_tool_use(tool_use_id, tool_name, tool_input, full_content)
+        self._queue._logger.debug(f"TOOL_RESULT  {tool_name:<20} → {result}")
         await self._stream_anthropic()
 
     async def _handle_final_response(self, event: Event):
