@@ -39,6 +39,9 @@ class Toolkit:
     def get_detailed_summary(self) -> str:
         return self._context.get_detailed_summary()
 
+    def get_recent_solves_summary(self) -> str:
+        return self._context.get_recent_solves_summary()
+
     def get_tool_list(self) -> list[dict]:
         return [
             {
