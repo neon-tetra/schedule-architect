@@ -12,7 +12,9 @@ class QueueProfile(BaseModel):
     day_weights:      list[float]
     interval_weights: list[float]
     monthly_cost:     float = 0.0
-
+    target_sl:        float = 0.80
+    answer_within_seconds: float = 20.0
+    shrinkage:        float = 0.0
 class RosterEntry(BaseModel):
     """A single agent archetype — a skill set and a headcount."""
 
