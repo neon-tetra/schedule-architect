@@ -1,4 +1,5 @@
-from domain import QueueProfile, RosterEntry, Roster, SolveResult
+from domain import QueueProfile, RosterEntry, Roster
+from solve_run import SolveRun
 
 MAX_SOLVE_HISTORY = 5
 
@@ -7,7 +8,7 @@ class ScenarioContext:
     def __init__(self, profiles: list[QueueProfile], roster: Roster):  # Roster not list
         self.profiles = profiles
         self.roster   = roster                                          # Roster object
-        self._solves: list[SolveResult] = []
+        self._solves: list[SolveRun] = []
         self._run_counter = 0
 
     # ── Roster ────────────────────────────────────────────────────────────────
@@ -21,12 +22,12 @@ class ScenarioContext:
         self._run_counter += 1
         return f"run_{self._run_counter:02d}"
 
-    def add_solve(self, result: SolveResult):
+    def add_solve(self, result: SolveRun):
         self._solves.append(result)
         if len(self._solves) > MAX_SOLVE_HISTORY:
             self._solves.pop(0)
 
-    def recent_solves(self) -> list[SolveResult]:
+    def recent_solves(self) -> list[SolveRun]:
         return list(self._solves)
 
     # ── Dynamic prompt content ────────────────────────────────────────────────
@@ -44,10 +45,5 @@ class ScenarioContext:
         if not self._solves:
             lines.append("  No solves run yet.")
         for r in self._solves:
-            lines.append(
-                f"  {r.run_id}: '{r.label}' | "
-                f"{r.total_agents} agents | "
-                f"${r.monthly_cost:,.0f}/mo | "
-                f"{r.coverage_pct:.1f}% coverage"
-            )
+            lines.append(f"  {r.run_id}: '{r.label}'")
         return "\n".join(lines)

@@ -13,14 +13,6 @@ class QueueProfile(BaseModel):
     interval_weights: list[float]
     monthly_cost:     float = 0.0
 
-class SolveResult(BaseModel):
-    run_id:       str
-    label:        str
-    total_agents: int
-    monthly_cost: float
-    coverage_pct: float
-    raw:          dict        # full solver output for chart rendering
-
 class RosterEntry(BaseModel):
     """A single agent archetype — a skill set and a headcount."""
 
