@@ -2,6 +2,10 @@ import json
 from pydantic import BaseModel
 from scenario_context import ScenarioContext
 from domain import RosterEntry, Roster
+from solve_run import SolveRun
+from slot_matrix import SlotMatrix
+from erlang import ErlangC
+from model_builder import ModelBuilder
 
 # ── Input DTOs ────────────────────────────────────────────────────────────────
 
@@ -14,10 +18,10 @@ class RunSolveInput(BaseModel):
 # ── Shared status result (returned after every tool call) ─────────────────────
 
 class StatusResult(BaseModel):
-    run_id:       str | None = None
-    label:        str | None = None
-    roster:       str        = ""
-    recent_solves: str       = ""
+    run_id:        str | None = None
+    label:         str | None = None
+    roster:        str        = ""
+    recent_solves: str        = ""
 
     def to_tool_string(self) -> str:
         lines = [f"Roster:\n{self.roster}"]
@@ -104,9 +108,27 @@ class Toolkit:
         return self._status().to_tool_string()
 
     def _run_solve(self, inp: RunSolveInput) -> str:
-        # stub — solver call goes here, result stored in context
-        # NOTE: solver is sync — CP-SAT solves in <100ms, no async needed
+        # NOTE: sync/blocking — CP-SAT solves in <100ms, no async needed
         run_id = self._context.next_run_id()
+        queues = {p.skill_id: p for p in self._context.profiles}
+
+        # Derive demand across all queues via Erlang C
+        demand_values: dict[tuple[int, int, str], int] = {}
+        for profile in self._context.profiles:
+            curve = ErlangC.requirements_curve(env=profile)
+            demand_values.update(curve.values)
+        demand = SlotMatrix(label="demand", values=demand_values)
+
+        # Build and solve
+        result = ModelBuilder().build_and_solve(
+            roster=self._context.roster,
+            queues=queues,
+            demand=demand,
+        )
+        result.run_id = run_id
+        result.label  = inp.label
+        self._context.add_solve(result)
+
         return self._status(run_id=run_id, label=inp.label).to_tool_string()
 
     def _query_status(self) -> str:
