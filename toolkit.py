@@ -40,18 +40,7 @@ class Toolkit:
         return self._context.get_detailed_summary()
 
     def get_recent_solves_summary(self) -> str:
-        """Returns a formatted summary of recent solve results for inclusion in the dynamic
-        section of the system prompt. Rebuilt each turn so Claude always sees current results."""
-        solves = self._context.recent_solves()
-        if not solves:
-            return "## Recent Solves\n  No solves run yet."
-        lines = ["## Recent Solves"]
-        for r in solves:
-            lines.append(
-                f"  {r.run_id}: '{r.label}' | {r.total_agents} agents | "
-                f"${r.monthly_cost:,.0f}/mo | {r.coverage_pct:.1f}% coverage"
-            )
-        return "\n".join(lines)
+        return self._context.get_recent_solves_summary()
 
     def get_tool_list(self) -> list[dict]:
         return [

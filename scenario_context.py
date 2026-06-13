@@ -36,7 +36,11 @@ class ScenarioContext:
         for e in self.roster.entries:
             lines.append(f"  {' + '.join(e.skills)}: {e.count} agents")
 
-        lines.append("\n## Recent Solves")
+        lines.append(f"\n{self.get_recent_solves_summary()}")
+        return "\n".join(lines)
+
+    def get_recent_solves_summary(self) -> str:
+        lines = ["## Recent Solves"]
         if not self._solves:
             lines.append("  No solves run yet.")
         for r in self._solves:
