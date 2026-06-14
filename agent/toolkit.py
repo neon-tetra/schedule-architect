@@ -1,11 +1,13 @@
 import json
 from pydantic import BaseModel
-from scenario_context import ScenarioContext
-from domain import RosterEntry, Roster
-from solve_run import SolveRun
-from slot_matrix import SlotMatrix
-from erlang import ErlangC
-from model_builder import ModelBuilder
+from   core.scenario_context import ScenarioContext
+from   core.domain           import RosterEntry, Roster
+from   core.solve_run        import SolveRun
+from   core.slot_matrix      import SlotMatrix
+from solver.erlang           import ErlangC
+from solver.model_builder    import ModelBuilder
+
+from core.scenarios.default import DEFAULT_PROFILES, DEFAULT_ROSTER
 
 # ── Input DTOs ────────────────────────────────────────────────────────────────
 
@@ -35,8 +37,8 @@ class StatusResult(BaseModel):
 
 class Toolkit:
 
-    def __init__(self, context: ScenarioContext):
-        self._context = context
+    def __init__(self):
+        self._context = ScenarioContext(profiles=DEFAULT_PROFILES, roster=DEFAULT_ROSTER)
 
     # TODO: (A) enrich this output with queue profile data and solve history formatting
     #       (B) consider a separate condensed summary variant for mid-session use

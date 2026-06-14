@@ -1,11 +1,11 @@
 import asyncio
 from debug_logger import DebugLogger
 from mediator import MediatorLoop
-from scenario_context import ScenarioContext
+from core.scenario_context import ScenarioContext
 from events import Event, EventSource, EventType
-from scenarios.default import DEFAULT_PROFILES, DEFAULT_ROSTER
-from toolkit import Toolkit
-from agent_session import AgentSession
+from core.scenarios.default import DEFAULT_PROFILES, DEFAULT_ROSTER
+from agent.toolkit import Toolkit
+from agent.agent_session import AgentSession
 
 class ChatSession:
 

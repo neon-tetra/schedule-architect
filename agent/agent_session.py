@@ -14,11 +14,12 @@ class Stage(IntEnum):
 
 
 class AgentSession:
-    def __init__(self, toolkit: Toolkit):
+    def __init__(self):
         self._messages          = []
         self._turn              = 0
         self._stage             = Stage.BEGINNING
-        self._toolkit           = toolkit
+        self._toolkit           = Toolkit() #For now - automatically load default scenario to toolkit
+        
         # Eagerly loaded at session start via toolkit — locks starting conditions
         # into the static (cached) section of the system prompt. This is intentional:
         # the result of a dynamic lookup at init time, not recomputed each turn.
