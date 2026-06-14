@@ -1,5 +1,5 @@
-from domain import QueueProfile, RosterEntry, Roster
-from solve_run import SolveRun
+from core.domain import QueueProfile, RosterEntry, Roster
+from core.solve_run import SolveRun
 
 MAX_SOLVE_HISTORY = 5
 

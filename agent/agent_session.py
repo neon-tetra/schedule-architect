@@ -1,7 +1,7 @@
 import re
 from enum import IntEnum
-from prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
-from toolkit import Toolkit
+from agent.prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
+from agent.toolkit import Toolkit
 from agent.response_parser import ResponseParser
 MODEL      = "claude-opus-4-5"
 MAX_TOKENS = 8096

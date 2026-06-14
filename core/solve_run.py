@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from slot_matrix import SlotMatrix
+from core.slot_matrix import SlotMatrix
 
 
 class SolveRun(BaseModel):

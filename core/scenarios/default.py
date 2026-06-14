@@ -12,7 +12,7 @@ Skill cost model:
   Each agent may hold exactly one primary skill and at most one secondary skill.
   Roster cost is derived post-solve from the skill composition of each RosterEntry.
 """
-from domain import QueueProfile, RosterEntry, Roster
+from core.domain import QueueProfile, RosterEntry, Roster
 
 # ── Skills ────────────────────────────────────────────────────────────────────
 

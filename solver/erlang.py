@@ -1,6 +1,6 @@
 import math
-from domain import QueueProfile
-from slot_matrix import SlotMatrix
+from core.domain import QueueProfile
+from core.slot_matrix import SlotMatrix
 
 
 class ErlangC:

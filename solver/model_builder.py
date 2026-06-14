@@ -1,7 +1,7 @@
-from domain import Roster, QueueProfile
-from slot_matrix import SlotMatrix
-from solve_run import SolveRun
-from var_registry import VarRegistry
+from core.domain import Roster, QueueProfile
+from core.slot_matrix import SlotMatrix
+from core.solve_run import SolveRun
+from solver.var_registry import VarRegistry
 
 from ortools.sat.python.cp_model import CpModel, CpSolver, LinearExpr
 
