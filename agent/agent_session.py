@@ -2,6 +2,7 @@ import re
 from enum import IntEnum
 from prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
 from toolkit import Toolkit
+from agent.response_parser import ResponseParser
 MODEL      = "claude-opus-4-5"
 MAX_TOKENS = 8096
 
@@ -19,7 +20,7 @@ class AgentSession:
         self._turn              = 0
         self._stage             = Stage.BEGINNING
         self._toolkit           = Toolkit() #For now - automatically load default scenario to toolkit
-        
+
         # Eagerly loaded at session start via toolkit — locks starting conditions
         # into the static (cached) section of the system prompt. This is intentional:
         # the result of a dynamic lookup at init time, not recomputed each turn.
@@ -139,3 +140,29 @@ class AgentSession:
         return self._toolkit.get_recent_solves_summary()
 
 
+    async def run_turn(self, text: str, on_token: callable) -> str:
+        self.add_user_message(text)
+        parser = ResponseParser()
+
+        while True:
+            raw_response_text = ""
+            async with self._client.messages.stream(**self.build_payload()) as stream:
+                async for chunk in stream:
+                    if chunk.type == "content_block_delta" and chunk.delta.type == "text_delta":  #Streamed token
+                        raw_response_text += chunk.delta.text
+                        passthrough_token = parser.feed(chunk.delta.text)
+                        if passthrough_token:
+                            await on_token(passthrough_token)
+                    elif chunk.type == "message_delta" and chunk.delta.stop_reason == "tool_use": #Tool use request
+                        full_message = await stream.get_final_message()
+                        tool_block = next(b for b in full_message.content if b.type == "tool_use")
+                        self.handle_tool_use(
+                            tool_block.id,    tool_block.name,
+                            tool_block.input, full_message.content
+                        )
+                        break
+                    elif chunk.type == "message_delta" and chunk.delta.stop_reason == "end_turn": #End of anthropic response                                                                         #End of message
+                        parsed = ResponseParser.parse(raw_response_text) # final parse to extract summary and other structured data
+                        self.add_assistant_message(parsed.summary)
+                        return parsed                    
+    

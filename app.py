@@ -13,10 +13,10 @@ async def on_message(message: cl.Message):
     cl_msg = cl.Message(content="")
     await cl_msg.send()
 
-    async def on_token(text: str):
-        await cl_msg.stream_token(text)
+    async def on_token(text: str): #Create pass-through function for streaming tokens back to chainlit as they arrive from anthropic
+        await cl_msg.stream_token(text) 
 
-    result = await session.run_turn(message.content, on_token=on_token)
+    result = await session.run_turn(message.content, on_token=on_token) #on_token callback allows streaming token to chainlit as they arrive
     
     cl_msg.content = result.display_text
     await cl_msg.update()
