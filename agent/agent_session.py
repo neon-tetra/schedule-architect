@@ -1,12 +1,11 @@
-import re
+from anthropic import AsyncAnthropic
+
 from enum import IntEnum
 from agent.prompts import OVERVIEW, SCENARIO_DESCRIPTION, ROLE_FINAL, ROLE_MIDDLE, ROLE_BEGINNING
 from agent.toolkit import Toolkit
 from agent.response_parser import ResponseParser
 MODEL      = "claude-opus-4-5"
 MAX_TOKENS = 8096
-
-SUMMARY_TAG = r'<<summary>>(.*?)<</summary>>'
 
 class Stage(IntEnum):
     BEGINNING = 1
@@ -20,7 +19,7 @@ class AgentSession:
         self._turn              = 0
         self._stage             = Stage.BEGINNING
         self._toolkit           = Toolkit() #For now - automatically load default scenario to toolkit
-
+        self._client            = AsyncAnthropic.Client()
         # Eagerly loaded at session start via toolkit — locks starting conditions
         # into the static (cached) section of the system prompt. This is intentional:
         # the result of a dynamic lookup at init time, not recomputed each turn.
@@ -58,16 +57,15 @@ class AgentSession:
             "content": text
         })
 
-    def add_tool_result(self, tool_use_id: str, result: str):  # str not dict
+    def add_tool_result(self, tool_use_id: str, result: str):
         self._messages.append({
             "role": "user",
             "content": [{
                 "type":        "tool_result",
                 "tool_use_id": tool_use_id,
-                "content":     result   # string, Anthropic is happy
+                "content":     result 
             }]
         })
-        print(f"Added tool result to messages: {tool_use_id} → {result}")
 
     def add_assistant_tool_use(self, content: list):
         """Store assistant turn that ended in a tool use — preserves full content block."""
