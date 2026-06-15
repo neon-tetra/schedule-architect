@@ -153,3 +153,7 @@ class Toolkit:
             roster=roster_str,
             recent_solves=solves_str,
         )
+    
+    def _get_last_solve(self) -> SolveRun | None:
+        recent = self._context.recent_solves()
+        return recent[0] if recent else None
