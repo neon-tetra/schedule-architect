@@ -147,6 +147,13 @@ fig.write_html("chart_dev.html")
 #skill appears in front
 #Step 3 - add per-day animation widget
 
+#Thinking about this for a moment
+#We have a chart object - lets just focus on this volume chart.
+#Agent says - give me run6 , volume chart, focus floral monday.  <<run6_volumechart_floral_monday>>
+#We have our presentation object
+#Imagine handler/dispatch with config options
+
+
 
 
 
