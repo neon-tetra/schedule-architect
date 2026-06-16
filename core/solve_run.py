@@ -1,5 +1,6 @@
 from pydantic import BaseModel, model_validator
 from core.slot_matrix import SlotMatrix
+from core.domain import Roster
 import pandas as pd
 
 class SolveRun(BaseModel):
@@ -15,6 +16,7 @@ class SolveRun(BaseModel):
     demand:    SlotMatrix
     supply:    SlotMatrix
     shortfall: SlotMatrix
+    roster:    Roster
     df: pd.DataFrame = None  # populated by model_validator after init
     
     model_config = {"arbitrary_types_allowed": True}
@@ -32,4 +34,10 @@ class SolveRun(BaseModel):
                 "shortfall": self.shortfall.get(d, sl, sk),
             })
         self.df = pd.DataFrame(rows)
+        #add helper cols for display day of week, and hour
+        #monday = 0, sunday = 6
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        self.df["day_of_week"] = self.df["day"].apply(lambda x: days[x % 7])
+        #hour = hour/2 rounded down
+        self.df["hour"] = (self.df["slot"] // 2)
         return self

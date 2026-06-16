@@ -27,3 +27,6 @@ Thumbs.db
 
 # Chainlit
 .files/
+
+# html
+.html

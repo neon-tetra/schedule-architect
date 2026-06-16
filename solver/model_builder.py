@@ -158,4 +158,5 @@ class ModelBuilder:
             demand=demand,
             supply=supply,
             shortfall=shortfall,
+            roster=roster,
         )
