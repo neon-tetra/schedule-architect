@@ -17,12 +17,12 @@ class SolveRun(BaseModel):
     supply:    SlotMatrix
     shortfall: SlotMatrix
     roster:    Roster
-    df: pd.DataFrame = None  # populated by model_validator after init
-    
+    df_interval: pd.DataFrame = None
+    df_roster:   pd.DataFrame = None
     model_config = {"arbitrary_types_allowed": True}
 
     @model_validator(mode="after")
-    def build_df(self):
+    def build_df_interval(self):
         rows = []
         for (d, sl, sk), dem in self.demand.values.items():
             rows.append({
@@ -33,11 +33,23 @@ class SolveRun(BaseModel):
                 "supply":   self.supply.get(d, sl, sk),
                 "shortfall": self.shortfall.get(d, sl, sk),
             })
-        self.df = pd.DataFrame(rows)
+        self.df_interval = pd.DataFrame(rows)
         #add helper cols for display day of week, and hour
         #monday = 0, sunday = 6
         days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        self.df["day_of_week"] = self.df["day"].apply(lambda x: days[x % 7])
+        self.df_interval["day_of_week"] = self.df_interval["day"].apply(lambda x: days[x % 7])
         #hour = hour/2 rounded down
-        self.df["hour"] = (self.df["slot"] // 2)
+        self.df_interval["hour"] = (self.df_interval["slot"] // 2)
+        return self
+    
+    @model_validator(mode="after")
+    def build_df_roster(self):
+        rows = []
+        for entry in self.roster.entries:
+            rows.append({
+                "skills": ", ".join(entry.skills),
+                "count": entry.count,
+                "monthly_cost": entry.monthly_cost,
+            })
+        self.df_roster = pd.DataFrame(rows)
         return self

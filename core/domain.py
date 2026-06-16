@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel
-
+from typing import Optional
 
 class QueueProfile(BaseModel):
     skill_id:         str
@@ -22,14 +22,10 @@ class RosterEntry(BaseModel):
 
     skills: list[str]
     count: int
+    monthly_cost: Optional[float] = None
 
-    @classmethod
-    def from_string(cls, s: str) -> RosterEntry:
-        """Parse a compact string representation e.g. 'billing,collections:4'."""
-        raise NotImplementedError
 
-    def monthly_cost(self, queues: dict[str, QueueProfile]) -> float:
-        return sum(queues[s].monthly_cost for s in self.skills if s in queues)
+
 
 
 class Roster(BaseModel):
@@ -52,13 +48,10 @@ class Roster(BaseModel):
         lines = []
         for e in self.entries:
             skill_str = " + ".join(e.skills)
-            if queues:
-                cost_per = e.monthly_cost(queues)
-                line_total = cost_per * e.count
-                lines.append(f"  {e.count:>3}x  {skill_str:<45}  ${cost_per:>6,.0f}/agent   ${line_total:>8,.0f}/mo")
-            else:
-                lines.append(f"  {e.count:>3}x  {skill_str}")
+            lines.append(f"{skill_str}: {e.count} agents, ${e.monthly_cost:.2f}/agent/month")
         return "\n".join(lines)
-
-    def total_monthly_cost(self, queues: dict[str, QueueProfile]) -> float:
-        return sum(e.monthly_cost(queues) * e.count for e in self.entries)
+    
+    @property
+    def total_monthly_cost(self) -> float:
+        """Calculate total monthly cost of the roster."""
+        return sum(e.count * e.monthly_cost for e in self.entries)

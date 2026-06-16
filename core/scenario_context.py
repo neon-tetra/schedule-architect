@@ -10,11 +10,17 @@ class ScenarioContext:
         self.roster   = roster                                          # Roster object
         self._solves: list[SolveRun] = []
         self._run_counter = 0
+        self._update_roster_costs()
 
     # ── Roster ────────────────────────────────────────────────────────────────
 
     def update_roster(self, roster: Roster):                           # Roster not list
         self.roster = roster
+        self._update_roster_costs()
+    
+    def _update_roster_costs(self):
+        for entry in self.roster.entries:
+            entry.monthly_cost = sum(p.monthly_cost for p in self.profiles if p.skill_id in entry.skills)
 
     # ── Solves ────────────────────────────────────────────────────────────────
 
