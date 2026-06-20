@@ -10,7 +10,7 @@ Trace index map (fixed — frames and dropdown both depend on this order):
 
 Public API
 ──────────
-    build_volume_chart(solve: SolveRun) -> go.Figure
+    build_volume_chart(solve: SolveRun, initial_skill=None, initial_day=None) -> go.Figure
 """
 
 from __future__ import annotations
@@ -29,13 +29,14 @@ from presentation.theme import (
 # ── constants ─────────────────────────────────────────────────────────────────
 
 DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+ALL_DAYS   = ["Weekly Avg"] + DAY_LABELS
 
 N_SKILLS            = len(SKILL_ORDER_RAW)
 IDX_GHOST           = 0
 IDX_STACK_START     = 1
-IDX_STACK_END       = IDX_STACK_START + N_SKILLS       # 7 (exclusive)
-IDX_HIGHLIGHT_START = IDX_STACK_END                    # 7
-IDX_HIGHLIGHT_END   = IDX_HIGHLIGHT_START + N_SKILLS   # 13 (exclusive)
+IDX_STACK_END       = IDX_STACK_START + N_SKILLS        # 7 (exclusive)
+IDX_HIGHLIGHT_START = IDX_STACK_END                     # 7
+IDX_HIGHLIGHT_END   = IDX_HIGHLIGHT_START + N_SKILLS    # 13 (exclusive)
 
 
 # ── 1. DATA PREP ──────────────────────────────────────────────────────────────
@@ -43,17 +44,13 @@ IDX_HIGHLIGHT_END   = IDX_HIGHLIGHT_START + N_SKILLS   # 13 (exclusive)
 def _prep_chart_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Return a single long-form DataFrame with columns:
-        day    : "all" | "Monday" … "Sunday"
+        day    : "Weekly Avg" | "Monday" … "Sunday"
         hour   : int, filtered to HOURS.hours
         skill  : raw skill_id string
         demand : float
-
-    Filtering to operating hours and computing both the all-days aggregate
-    and per-day rows happens here — nowhere else.
     """
     df = df[df["hour"].isin(HOURS.hours)]
 
-    # per-day rows — map integer day index to day name
     by_day = (
         df.groupby(["day", "hour", "skill"])["demand"]
         .sum()
@@ -61,13 +58,12 @@ def _prep_chart_data(df: pd.DataFrame) -> pd.DataFrame:
     )
     by_day["day"] = by_day["day"].map(lambda x: DAY_LABELS[x % 7])
 
-    # all-days aggregate
     all_days = (
         df.groupby(["hour", "skill"])["demand"]
         .sum()
         .reset_index()
     )
-    all_days.insert(0, "day", "all")
+    all_days.insert(0, "day", "Weekly Avg")
 
     return pd.concat([all_days, by_day], ignore_index=True)
 
@@ -77,9 +73,9 @@ def _prep_chart_data(df: pd.DataFrame) -> pd.DataFrame:
 def _vis_all() -> list[bool]:
     """Ghost hidden, stack visible, highlights hidden."""
     return (
-        [False]           * 1        +   # ghost
-        [True]            * N_SKILLS +   # stack
-        [False]           * N_SKILLS     # highlights
+        [False] * 1        +
+        [True]  * N_SKILLS +
+        [False] * N_SKILLS
     )
 
 
@@ -88,25 +84,24 @@ def _vis_skill(skill_index: int) -> list[bool]:
     highlights = [False] * N_SKILLS
     highlights[skill_index] = True
     return (
-        [True]            * 1        +   # ghost
-        [False]           * N_SKILLS +   # stack
-        highlights                       # highlights
+        [True]  * 1        +
+        [False] * N_SKILLS +
+        highlights
     )
 
 
-# ── 3. TRACES ─────────────────────────────────────────────────────────────────
+# ── 3. TRACE BUILDER ──────────────────────────────────────────────────────────
 
-def _build_traces(chart_df: pd.DataFrame) -> list[go.Scatter]:
+def _build_traces_for_day(day_df: pd.DataFrame) -> list[go.Scatter]:
     """
-    Build all 13 traces against the all-days aggregate.
-    Returns traces in fixed index order: ghost, stack x6, highlight x6.
+    Build all 13 traces against a specific day slice.
+    Fixed index order: [0] ghost, [1-6] stack, [7-12] highlights.
     """
     traces = []
-    all_df = chart_df[chart_df["day"] == "all"]
 
     # [0] ghost total
     total_by_hour = (
-        all_df.groupby("hour")["demand"]
+        day_df.groupby("hour")["demand"]
         .sum()
         .reindex(HOURS.hours, fill_value=0)
     )
@@ -125,7 +120,7 @@ def _build_traces(chart_df: pd.DataFrame) -> list[go.Scatter]:
     # [1–6] stacked skill areas
     for i, skill in enumerate(SKILL_ORDER_RAW):
         skill_demand = (
-            all_df[all_df["skill"] == skill]
+            day_df[day_df["skill"] == skill]
             .set_index("hour")["demand"]
             .reindex(HOURS.hours, fill_value=0)
         )
@@ -133,7 +128,6 @@ def _build_traces(chart_df: pd.DataFrame) -> list[go.Scatter]:
             x=HOURS.hours,
             y=skill_demand.values,
             mode="none",
-            fill="tonexty" if i > 0 else "tozeroy",
             fillcolor=SKILL_MONO[i],
             name=SKILL_LABELS[skill],
             stackgroup="volume",
@@ -146,7 +140,7 @@ def _build_traces(chart_df: pd.DataFrame) -> list[go.Scatter]:
     # [7–12] single-skill highlight areas
     for skill in SKILL_ORDER_RAW:
         skill_demand = (
-            all_df[all_df["skill"] == skill]
+            day_df[day_df["skill"] == skill]
             .set_index("hour")["demand"]
             .reindex(HOURS.hours, fill_value=0)
         )
@@ -170,11 +164,15 @@ def _build_traces(chart_df: pd.DataFrame) -> list[go.Scatter]:
 
 # ── 4. DROPDOWN ───────────────────────────────────────────────────────────────
 
-def _build_dropdown() -> dict:
+def _build_dropdown(initial_skill: str | None = None) -> dict:
     """
-    Skill selector dropdown.  First entry restores the full stack,
-    subsequent entries drill into a single skill.
+    Skill selector dropdown. active= is set to match initial_skill so the
+    dropdown label agrees with the trace visibility on load.
     """
+    active_index = 0
+    if initial_skill is not None and initial_skill in SKILL_ORDER_RAW:
+        active_index = SKILL_ORDER_RAW.index(initial_skill) + 1  # +1 for "All Queues" at 0
+
     buttons = [
         dict(
             label="All Queues",
@@ -197,6 +195,7 @@ def _build_dropdown() -> dict:
         ))
 
     return dict(
+        active=active_index,
         type="dropdown",
         x=1.0, xanchor="right",
         y=1.12, yanchor="top",
@@ -207,17 +206,17 @@ def _build_dropdown() -> dict:
     )
 
 
-# ── 5. ANIMATION (deferred) ───────────────────────────────────────────────────
+# ── 5. ANIMATION ──────────────────────────────────────────────────────────────
 
 def _build_frames(chart_df: pd.DataFrame) -> list[go.Frame]:
     """
-    One Frame per day. Each frame updates y-data on all 13 traces
-    in fixed index order. Visibility is intentionally not set —
-    dropdown state must survive frame transitions.
+    One frame per day. Full trace definitions in each frame so stackgroup
+    context is preserved across transitions. Visibility not set — dropdown
+    state must survive frame changes.
     """
     frames = []
 
-    for day_label in DAY_LABELS:
+    for day_label in ALL_DAYS:
         day_df = chart_df[chart_df["day"] == day_label]
         frame_data = []
 
@@ -227,16 +226,28 @@ def _build_frames(chart_df: pd.DataFrame) -> list[go.Frame]:
             .sum()
             .reindex(HOURS.hours, fill_value=0)
         )
-        frame_data.append(go.Scatter(y=total_by_hour.values))
+        frame_data.append(go.Scatter(
+            x=HOURS.hours,
+            y=total_by_hour.values,
+            fill="tozeroy",
+            mode="none",
+            fillcolor=T.GHOST_FILL,
+        ))
 
         # [1–6] stacked skill areas
-        for skill in SKILL_ORDER_RAW:
+        for i, skill in enumerate(SKILL_ORDER_RAW):
             skill_demand = (
                 day_df[day_df["skill"] == skill]
                 .set_index("hour")["demand"]
                 .reindex(HOURS.hours, fill_value=0)
             )
-            frame_data.append(go.Scatter(y=skill_demand.values))
+            frame_data.append(go.Scatter(
+                x=HOURS.hours,
+                y=skill_demand.values,
+                mode="none",
+                fillcolor=SKILL_MONO[i],
+                stackgroup="volume",
+            ))
 
         # [7–12] highlight areas
         for skill in SKILL_ORDER_RAW:
@@ -245,19 +256,24 @@ def _build_frames(chart_df: pd.DataFrame) -> list[go.Frame]:
                 .set_index("hour")["demand"]
                 .reindex(HOURS.hours, fill_value=0)
             )
-            frame_data.append(go.Scatter(y=skill_demand.values))
+            frame_data.append(go.Scatter(
+                x=HOURS.hours,
+                y=skill_demand.values,
+                mode="none",
+                fill="tozeroy",
+                fillcolor=SKILL_COLORS.get(skill, T.ACCENT),
+            ))
 
         frames.append(go.Frame(data=frame_data, name=day_label))
 
     return frames
 
 
-def _build_animation_controls() -> tuple[dict, dict]:
-    """
-    Returns (play_pause_menu, slider).
-    """
+def _build_animation_controls(active_day_index: int = 0) -> tuple[dict, dict]:
+    """Returns (play_pause_menu, slider)."""
     play_pause = dict(
         type="buttons",
+        active=-1,
         showactive=False,
         x=0.0, xanchor="left",
         y=-0.12, yanchor="top",
@@ -274,7 +290,6 @@ def _build_animation_controls() -> tuple[dict, dict]:
                         "frame": {"duration": 800, "redraw": True},
                         "fromcurrent": True,
                         "transition": {"duration": 300},
-                        "autoplay": False,
                     },
                 ],
             ),
@@ -290,7 +305,7 @@ def _build_animation_controls() -> tuple[dict, dict]:
     )
 
     slider = dict(
-        active=0,        
+        active=active_day_index,
         currentvalue=dict(
             prefix="Day: ",
             font=dict(color=T.TEXT_MUTED, size=11),
@@ -311,7 +326,7 @@ def _build_animation_controls() -> tuple[dict, dict]:
                     {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"},
                 ],
             )
-            for day in DAY_LABELS
+            for day in ALL_DAYS
         ],
     )
 
@@ -320,68 +335,71 @@ def _build_animation_controls() -> tuple[dict, dict]:
 
 # ── 6. LAYOUT ─────────────────────────────────────────────────────────────────
 
-def _apply_layout(fig: go.Figure, dropdown: dict, play_pause: dict, slider: dict) -> None:
+def _apply_layout(
+    fig: go.Figure,
+    dropdown: dict,
+    play_pause: dict,
+    slider: dict,
+    initial_skill: str | None = None,
+) -> None:
+    title_text = (
+        f"<b>Call Volume — {SKILL_LABELS[initial_skill]}</b>"
+        if initial_skill and initial_skill in SKILL_LABELS
+        else "<b>Call Volume — All Queues</b>"
+    )
     fig.update_layout(
         height=480,
         margin=MARGIN.default,
-        title=dict(
-            text="<b>Call Volume — All Queues</b>",
-            font=T.FONT_TITLE,
-        ),
+        title=dict(text=title_text, font=T.FONT_TITLE),
         xaxis=dict(
             tickmode="array",
             tickvals=HOURS.hours,
             ticktext=HOURS.tick_labels,
         ),
-        yaxis=dict(
-            rangemode="tozero",
-        ),
-        legend=dict(
-            orientation="h",
-            y=-0.15,
-            x=0.0,
-        ),
+        yaxis=dict(rangemode="tozero"),
+        legend=dict(orientation="h", y=-0.15, x=0.0),
         updatemenus=[dropdown, play_pause],
-        sliders=[slider],        
+        sliders=[slider],
     )
 
 
 # ── 7. PUBLIC ENTRY POINT ─────────────────────────────────────────────────────
+
 def build_volume_chart(
     solve: SolveRun,
     initial_skill: str | None = None,
     initial_day: str | None = None,
 ) -> go.Figure:
+    """
+    Build the volume area chart from a completed SolveRun.
+
+    Parameters
+    ----------
+    initial_skill : raw skill_id string e.g. "account_services", or None for all
+    initial_day   : day label e.g. "Monday" or "Weekly Avg", or None for "Weekly Avg"
+    """
+    resolved_day = initial_day if initial_day in ALL_DAYS else "Weekly Avg"
+
     chart_df = _prep_chart_data(solve.df_interval)
 
+    # build traces born in the correct initial day state
+    day_df = chart_df[chart_df["day"] == resolved_day]
     fig = go.Figure()
-
-    for trace in _build_traces(chart_df):
+    for trace in _build_traces_for_day(day_df):
         fig.add_trace(trace)
 
-    # attach animation frames
-    fig.frames = _build_frames(chart_df)
-    # build controls
-    dropdown = _build_dropdown()
-    play_pause, slider = _build_animation_controls()
-    _apply_layout(fig, dropdown, play_pause, slider)
-
-    # apply initial skill state
+    # apply initial skill visibility directly on the freshly built traces
     if initial_skill is not None and initial_skill in SKILL_ORDER_RAW:
-        i = SKILL_ORDER_RAW.index(initial_skill)
-        for idx, v in enumerate(_vis_skill(i)):
-            fig.data[idx].visible = v
-        fig.update_layout(
-            title_text=f"<b>Call Volume — {SKILL_LABELS[initial_skill]}</b>"
-        )
+        vis = _vis_skill(SKILL_ORDER_RAW.index(initial_skill))
+        for idx, v in enumerate(vis):
+            fig.data[idx].update(visible=v)
 
-    # apply initial day — jump to that frame immediately
-    if initial_day is not None and initial_day in DAY_LABELS:
-        day_frame = next(f for f in fig.frames if f.name == initial_day)
-        for idx, trace in enumerate(day_frame.data):
-            fig.data[idx].y = trace.y
-        fig.update_layout(
-            sliders=[{**slider, "active": DAY_LABELS.index(initial_day)}]
-        )
+    # frames + controls
+    fig.frames = _build_frames(chart_df)
+    dropdown  = _build_dropdown(initial_skill=initial_skill)
+    play_pause, slider = _build_animation_controls(
+        active_day_index=ALL_DAYS.index(resolved_day)
+    )
+    _apply_layout(fig, dropdown, play_pause, slider, initial_skill=initial_skill)
 
     return fig
