@@ -2,6 +2,7 @@ from pydantic import BaseModel, model_validator
 from core.slot_matrix import SlotMatrix
 from core.domain import Roster
 import pandas as pd
+from solver.var_registry import VarRegistry
 
 class SolveRun(BaseModel):
     """The complete record of a single model run.
@@ -19,7 +20,9 @@ class SolveRun(BaseModel):
     roster:    Roster
     df_interval: pd.DataFrame = None
     df_roster:   pd.DataFrame = None
+    var_registry: VarRegistry = None #ugly but useful
     model_config = {"arbitrary_types_allowed": True}
+    
 
     @model_validator(mode="after")
     def build_df_interval(self):

@@ -2,9 +2,8 @@ from core.domain import Roster, QueueProfile
 from core.slot_matrix import SlotMatrix
 from core.solve_run import SolveRun
 from solver.var_registry import VarRegistry
-
-from ortools.sat.python.cp_model import CpModel, CpSolver, LinearExpr
-
+from solver.shifts import generate_variants
+from ortools.sat.python.cp_model import CpModel, CpSolver, OPTIMAL, FEASIBLE
 
 class ModelBuilder:
     """Builds and solves a CP-SAT scheduling model from a completed ScenarioContext.
@@ -17,146 +16,168 @@ class ModelBuilder:
     def build_and_solve(self, roster: Roster, queues: dict[str, QueueProfile], demand: SlotMatrix) -> SolveRun:
         """Read context, build CP-SAT model, solve, return result."""
 
-        # 1. Configuration: all hardcoded for now, variable (from scenario context) later
-        #    UB - Agent Upper Bound (for coverage vars)
-        #    SH - Valid Shift Start Times (e.g. 8, 9, 10, 11)
-        #    SD - Shift Duration (in slots)
-        #    D  - Days (0-6)
-        #    SL - Slots (0 - 47)
-        #
-        # 2. Input: passed as explicit args for now - needs to be overhauled to be more
-        #    dynamic after mvp
-        #    A - Agents {expanded from roster}
-        #    SK - Skills (from queues)
-        #    Demand - demand[d, sl, sk] from erlang curves
-        #
-        # 3. Decision Variables:
-        #    works[a, d, sh] in {0, 1} - agent a works shift sh on day d
-        #
-        # 4. Derived Expressions:
-        #    coverage[d, sl, sk] = sum(works[a, d, sh])
-        #        for all a where a.sk == k
-        #        for all sh where sl in [sh * 2, sh * 2 + 17]
-        #
-        #    shifts_on_day[a, d] = sum(works[a, d, sh]) for all sh
-        #    shifts_in_week[a] = sum(works[a, d, sh]) for all d, sh
-        #
-        # 5. Auxiliary Variables:
-        #    shortfall[d, sl, sk] = max(0, demand[d, sl, sk] - coverage[d, sl, sk])
-        #
-        # 6. Constraints:
-        #    shifts_on_day[a, d] <= 1
-        #    shifts_in_week[a] == 5
-        #
-        # 7. Objective:
-        #    Minimize sum(shortfall[d, sl, sk]) across all d, sl, sk
+
+        AGENT_UPPER_BOUND    = 20
+        VALID_SHIFT_STARTS   = [8, 9, 10, 11]
+        SHIFT_DURATION_SLOTS = 17
+        DAYS                 = range(0, 7)
+        SLOTS                = range(0, 48)
+        VALID_WORK_WEEK_PATTERNS = [
+            (2,3,4,5,6), (3,4,5,6,0), (4,5,6,0,1),
+            (5,6,0,1,2), (6,0,1,2,3), (0,1,2,3,4), (1,2,3,4,5)
+        ]
+        SCALED_UB = AGENT_UPPER_BOUND * 2
+        shift_variants = generate_variants(VALID_SHIFT_STARTS, SHIFT_DURATION_SLOTS)
+        #schedule variants - crossproduct of shift_variants and VALID_WORK_WEEK_PATTERNS
+        schedule_variants = [(shift.variant_id, workweek) for shift in shift_variants for workweek in VALID_WORK_WEEK_PATTERNS]
 
         self._model = CpModel()
 
-        var_registry = VarRegistry()
-
-        # 1. Configuration
-        # TODO: move hardcoded config (VALID_SHIFT_STARTS, SHIFT_DURATION_SLOTS etc.) to ScenarioContext
-        AGENT_UPPER_BOUND = 20
-        VALID_SHIFT_STARTS = [8, 9, 10, 11]  # in hours; shift * 2 below maps these to slots 16, 18, 20, 22
-        SHIFT_DURATION_SLOTS = 17
-        DAYS = range(0, 7)
-        SLOTS = range(0, 48)
-
-        # 2. Input
         agents = []
         for entry in roster.entries:
-            skills = "_".join(entry.skills)
+            primary   = entry.skills[0]
+            secondary = entry.skills[1] if len(entry.skills) > 1 else None
             for i in range(entry.count):
-                agent_id = f"{skills}_{i+1}"
-                agents.append({"id": agent_id, "skills": entry.skills})
-
+                skill_key = "_".join(entry.skills)
+                agents.append({
+                    "id":        f"{skill_key}_{i+1}",
+                    "primary":   primary,
+                    "secondary": secondary,
+                    "skills":    entry.skills,
+                })
         skills = list(queues.keys())
-        demand_dict = demand.values  # already a dict[(day, slot, skill_id) -> int]
 
-        # 3. Decision Variables
-        for agent in agents:
-            for day in DAYS:
-                for shift in VALID_SHIFT_STARTS:
-                    var_name = f"{agent['id']}_{day}_{shift}"
-                    var = self._model.NewBoolVar(var_name)
-                    var_registry.add(var, type="works", agent=agent["id"], day=day, shift=shift)
+        var_registry = VarRegistry()
 
-        # 4. Derived Expressions
-        def slots_in_shift(shift):
-            return range(shift * 2, shift * 2 + SHIFT_DURATION_SLOTS)
-
-        def coverage(day, slot, skill):
-            valid_agents = [agent for agent in agents if skill in agent["skills"]]
-            valid_shifts = [shift for shift in VALID_SHIFT_STARTS if slot in slots_in_shift(shift)]
-            relevant_vars = []
-
-            for agent in valid_agents:
-                for shift in valid_shifts:
-                    relevant_vars.extend(var_registry.query(type="works", agent=agent["id"], day=day, shift=shift))
-
-            return LinearExpr.Sum(relevant_vars)
-
-        def shifts_on_day(agent_id, day):
-            return LinearExpr.Sum(var_registry.query(type="works", agent=agent_id, day=day))
-
-        def shifts_in_week(agent_id):
-            return LinearExpr.Sum(var_registry.query(type="works", agent=agent_id))
-
-        # 5. Auxiliary Variables
         for day in DAYS:
             for slot in SLOTS:
                 for skill in skills:
-                    var_name = f"shortfall_{skill}_{day}_{slot}"
-                    var = self._model.NewIntVar(0, AGENT_UPPER_BOUND, var_name)
-                    var_registry.add(var, type="shortfall", day=day, slot=slot, skill=skill)
-                    self._model.Add(var >= demand_dict.get((day, slot, skill), 0) - coverage(day, slot, skill))
+                    demand_const = demand.values.get((day, slot, skill), 0) * 2 # HALF-SLOT SCALING
+                    var_registry.add(demand_const, type="demand_const", day=day, slot=slot, skill=skill)
 
-        # 6. Constraints
+        for pattern in VALID_WORK_WEEK_PATTERNS:
+            for variant in shift_variants:
+                    
+                for day in DAYS:
+                    for slot in SLOTS:
+                        intensity_const = 2 if day in pattern and variant.slot_present[slot] else 0
+                        present_const = 1 if intensity_const > 0 else 0
+
+
+                        var_registry.add(present_const, type="present_const", schedule_variant=variant.variant_id,
+                                            day=day,
+                                            slot=slot)
+                        var_registry.add(intensity_const, type="intensity_const", schedule_variant=variant.variant_id,
+                                            day=day,
+                                            slot=slot,
+                                            intensity=intensity_const)
+            
+        for agent in agents:
+            for variant in schedule_variants:
+                var_registry.add(self._model.NewBoolVar(f"schedule_variant_{agent['id']}_{variant[0]}_{variant[1]}"), 
+                                 type="schedule_variant", 
+                                 agent=agent["id"], 
+                                 schedule_variant=variant)
+                #max one variant
+            self._model.Add(sum(var_registry.query(type="schedule_variant", agent=agent["id"])) == 1)
+        
+        print("enter heavy duty loop")
         for agent in agents:
             for day in DAYS:
-                self._model.Add(shifts_on_day(agent["id"], day) <= 1)
-            self._model.Add(shifts_in_week(agent["id"]) == 5)
+                for slot in SLOTS:
+                    agent_slot_intensity_var = self._model.NewIntVar(0, 2, f"intensity_{agent['id']}_{day}_{slot}")
+                    var_registry.add(agent_slot_intensity_var, type="agent_slot_intensity", 
+                                     agent=agent["id"], 
+                                     day=day, 
+                                     slot=slot)
+                    agent_slot_present_var = self._model.NewBoolVar(f"present_{agent['id']}_{day}_{slot}")
+                    var_registry.add(agent_slot_present_var, type="agent_slot_present",
+                                        agent=agent["id"],
+                                        day=day,
+                                        slot=slot)
+                    for skill in agent["skills"]:
+                        agent_skill_slot_present_var = self._model.NewBoolVar(f"agent_skill_slot_present_{agent['id']}_{skill}_{day}_{slot}")
+                        var_registry.add(agent_skill_slot_present_var, type="agent_skill_slot_present", 
+                                         agent=agent["id"], 
+                                         skill=skill, 
+                                         day=day, 
+                                         slot=slot)
+                        agent_slot_intensity_var = var_registry.query(type="agent_slot_intensity", agent=agent["id"], day=day, slot=slot)[0]
+                        agent_skill_slot_intensity_var = self._model.NewIntVar(0, 2, f"agent_skill_slot_intensity_{agent['id']}_{skill}_{day}_{slot}")
+                        var_registry.add(agent_skill_slot_intensity_var, type="agent_skill_slot_intensity",
+                                            agent=agent["id"], 
+                                            skill=skill, 
+                                            day=day, 
+                                            slot=slot)
+                        self._model.AddMultiplicationEquality(agent_skill_slot_intensity_var, [agent_slot_intensity_var, agent_skill_slot_present_var])
 
-        # 7. Objective
-        shortfall_vars = var_registry.query(type="shortfall")
-        self._model.Minimize(LinearExpr.Sum(shortfall_vars))
+                    # tie intensity to chosen schedule variant
+                    self._model.Add(
+                        agent_slot_intensity_var
+                        == sum(
+                            var_registry.query(type="schedule_variant", agent=agent["id"], schedule_variant=variant.variant_id)[0]
+                            * var_registry.query(type="intensity_const", schedule_variant=variant.variant_id, day=day, slot=slot)[0]
+                            for variant in schedule_variants
+                        )
+                    )
 
-        # Solve
+                    self._model.Add(agent_slot_intensity_var >= agent_slot_present_var)
+                    self._model.Add(agent_slot_intensity_var <= 2 * agent_slot_present_var)
+
+                    skill_vars = var_registry.query(type="agent_skill_slot_present", agent=agent["id"], day=day, slot=slot)
+                    self._model.Add(agent_slot_present_var == sum(skill_vars))
+        
+        print("exit heavy duty loop, enter coverage loop")
+
+        for skill in skills:
+            for day in DAYS:
+                for slot in SLOTS:
+                    coverage_var = self._model.NewIntVar(0, SCALED_UB, f"coverage_{skill}_{day}_{slot}")
+                    var_registry.add(coverage_var, type="coverage", skill=skill, day=day, slot=slot)
+                    skill_coverage_vars = var_registry.query(type="agent_skill_slot_intensity", skill=skill, day=day, slot=slot)
+                    self._model.Add(coverage_var == sum(skill_coverage_vars))
+
+                    demand_const = var_registry.query(type="demand_const", day=day, slot=slot, skill=skill)[0]
+                    shortfall_var = self._model.NewIntVar(0, SCALED_UB, f"shortfall_{skill}_{day}_{slot}")
+                    var_registry.add(shortfall_var, type="shortfall", skill=skill, day=day, slot=slot)
+                    self._model.Add(shortfall_var >= demand_const - coverage_var)
+                    self._model.Add(shortfall_var >= 0)
+        
+        all_shortfalls = var_registry.query(type="shortfall")
+        self._model.Minimize(sum(all_shortfalls))
+
         solver = CpSolver()
-        solver.Solve(self._model)
+        solver.parameters.max_time_in_seconds = 120
+        solver.parameters.num_search_workers = 8 
+        solver.parameters.log_search_progress = True
+        solver.parameters.cp_model_presolve = True
 
-        # Build supply from solved works vars
-        supply_values = {}
-        for day in DAYS:
-            for slot in SLOTS:
-                for skill in skills:
-                    valid_agents = [a for a in agents if skill in a["skills"]]
-                    valid_shifts = [sh for sh in VALID_SHIFT_STARTS if slot in slots_in_shift(sh)]
-                    total = 0
-                    for agent in valid_agents:
-                        for shift in valid_shifts:
-                            for var in var_registry.query(type="works", agent=agent["id"], day=day, shift=shift):
-                                total += solver.Value(var)
-                    supply_values[(day, slot, skill)] = total
+        status = solver.Solve(self._model)
+        supply = SlotMatrix(label="supply", values={})
+        shortfall = SlotMatrix(label="shortfall", values={})
+        if status in (OPTIMAL, FEASIBLE):
+            for skill in skills:
+                for day in DAYS:
+                    for slot in SLOTS:
+                        coverage_var = var_registry.query(type="coverage", skill=skill, day=day, slot=slot)[0]
+                        coverage_val = solver.Value(coverage_var)
+                        supply.values[(day, slot, skill)] = coverage_val // 2 # HALF-SLOT SCALING
 
-        supply = SlotMatrix(label="supply", values=supply_values)
-
-        # Read shortfall directly from solved IntVars
-        shortfall_values = {}
-        for day in DAYS:
-            for slot in SLOTS:
-                for skill in skills:
-                    vars = var_registry.query(type="shortfall", day=day, slot=slot, skill=skill)
-                    shortfall_values[(day, slot, skill)] = solver.Value(vars[0]) if vars else 0
-
-        shortfall = SlotMatrix(label="shortfall", values=shortfall_values)
-
-        return SolveRun(
-            run_id="",   # assigned by caller (Toolkit._run_solve)
-            label="",    # assigned by caller
+                        shortfall_var = var_registry.query(type="shortfall", skill=skill, day=day, slot=slot)[0]
+                        shortfall_val = solver.Value(shortfall_var)
+                        shortfall.values[(day, slot, skill)] = shortfall_val // 2 # HALF-SLOT SCALING
+        else:
+            print("No solution found.")
+        solve_run = SolveRun(
+            run_id="test_run_001",
+            label="Test Run 001",
             demand=demand,
             supply=supply,
             shortfall=shortfall,
-            roster=roster,
+            roster=roster
         )
+        return solve_run
+
+
+        
+
