@@ -1,0 +1,17 @@
+agent_id,skill,schedule_uid,decision_agent_schedule
+agent_8,online_orders,pattern5_variant90,1
+agent_3,account_services,pattern4_variant79,1
+agent_10,online_orders,pattern6_variant46,1
+agent_1,account_services,pattern2_variant79,1
+agent_13,online_orders,pattern1_variant90,1
+agent_5,account_services,pattern3_variant89,1
+agent_12,online_orders,pattern5_variant86,1
+agent_2,account_services,pattern1_variant38,1
+agent_7,account_services,pattern6_variant73,1
+agent_14,online_orders,pattern1_variant42,1
+agent_15,online_orders,pattern5_variant94,1
+agent_9,online_orders,pattern3_variant20,1
+agent_4,account_services,pattern4_variant74,1
+agent_6,account_services,pattern1_variant32,1
+agent_0,account_services,pattern5_variant72,1
+agent_11,online_orders,pattern6_variant72,1

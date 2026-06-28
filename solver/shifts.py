@@ -23,7 +23,7 @@ class ShiftVariant(BaseModel):
         return "".join(str(s) for s in self.slot_activity)
 
 
-def generate_variants(shift_starts: list[int], shift_duration_slots: int):
+def generate_variants(shift_starts: list[int], shift_duration_slots: int, return_subset: float | None = None) -> list[ShiftVariant]:
     """
     Generate all valid break/lunch combinations for each shift start.
 
@@ -58,5 +58,11 @@ def generate_variants(shift_starts: list[int], shift_duration_slots: int):
                     slots[(shift_start_slot + lunch) % 48] = 0  # lunch
                     slots[(shift_start_slot + b2) % 48] = 1  # second break
                     variants.append(ShiftVariant(slot_activity=slots))
+
+    seed = 42
+    if return_subset is not None:
+        import random
+        random.seed(seed)
+        variants = random.sample(variants, int(len(variants) * return_subset))
 
     return variants

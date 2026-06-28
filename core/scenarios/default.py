@@ -161,13 +161,17 @@ DEFAULT_PROFILES = [
 
 # ── Starting Roster ───────────────────────────────────────────────────────────
 
+# DEFAULT_ROSTER = Roster(entries=[
+#     RosterEntry(skills=["account_services", "floral"],      count=3),
+#     RosterEntry(skills=["account_services", "bakery"],      count=5),
+#     RosterEntry(skills=["account_services", "escalations"], count=5),
+#     RosterEntry(skills=["account_services"],                count=16),
+#     RosterEntry(skills=["online_orders", "photo"],          count=7),
+#     RosterEntry(skills=["online_orders", "bakery"],         count=1),
+#     RosterEntry(skills=["online_orders", "escalations"],    count=2),
+#     RosterEntry(skills=["online_orders"],                   count=13),
+# ])
 DEFAULT_ROSTER = Roster(entries=[
-    RosterEntry(skills=["account_services", "floral"],      count=3),
-    RosterEntry(skills=["account_services", "bakery"],      count=5),
-    RosterEntry(skills=["account_services", "escalations"], count=5),
-    RosterEntry(skills=["account_services"],                count=16),
-    RosterEntry(skills=["online_orders", "photo"],          count=7),
-    RosterEntry(skills=["online_orders", "bakery"],         count=1),
-    RosterEntry(skills=["online_orders", "escalations"],    count=2),
-    RosterEntry(skills=["online_orders"],                   count=13),
+    RosterEntry(skills=["account_services"],                count=8),
+    RosterEntry(skills=["online_orders"],                   count=8),
 ])
