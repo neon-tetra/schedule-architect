@@ -23,7 +23,7 @@ build/
 Thumbs.db
 
 # Data
-.csv
+*.csv
 
 # Chainlit
 .files/

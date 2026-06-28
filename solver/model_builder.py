@@ -4,7 +4,19 @@ from solver.shifts import generate_variants
 from ortools.sat.python.cp_model import CpModel, CpSolver, OPTIMAL, FEASIBLE
 import polars as pl
 class ModelBuilder:
+#take dataframe, 1st class function, optional group by cols, and kwargs
+    def _add_at_most_one(self, df: pl.DataFrame, col_name: str, group_by_cols: list[str] | None = None, **kwargs):
+        if group_by_cols is not None:
+            for row in df.group_by(group_by_cols).agg(pl.col(col_name)).iter_rows(named=True):
+                self._model.add_at_most_one(row[col_name])
+        else:
+            self._model.add_at_most_one(df[col_name].to_list())
+        return df
 
+    def _add_model_var(self, df: pl.DataFrame, func, col_name: str, **kwargs) -> pl.DataFrame:
+        kwargs.setdefault("name", "")
+        vars_ = [func(**kwargs) for _ in range(df.height)]
+        return df.with_columns(pl.Series(col_name, vars_, dtype=pl.Object))
 
     def build_and_solve(self, roster: Roster, queues: dict[str, QueueProfile], demand: SlotMatrix):
 
@@ -45,32 +57,16 @@ class ModelBuilder:
                                       .join(df_schedule_variants.lazy(), how="cross")
                                       .unique(subset=["agent_id", "schedule_id"])
                                       .collect()
-        )
-
-        vars_ = [self._model.new_bool_var("") for row in df_decision_agent_schedule.iter_rows(named=True)]
-
-        df_decision_agent_schedule = (df_decision_agent_schedule
-                                      .with_columns(pl.Series("decision_agent_schedule", vars_))
+                                      .pipe(self._add_model_var,   col_name="decision_agent_schedule", func=self._model.new_bool_var)
+                                      .pipe(self._add_at_most_one, col_name="decision_agent_schedule", group_by_cols=["agent_id"])
         )
         
-        df_decision_agent_schedule_grouped = (df_decision_agent_schedule
-                                             .group_by("agent_id")
-                                             .agg(pl.col("decision_agent_schedule"))
+        df_interval = (df_demand
+                       .filter(pl.col("demand") > 0)
+                       .pipe(self._add_model_var, col_name="supply",    func=self._model.new_int_var, lb=0, ub=SCALED_UB)
+                       .pipe(self._add_model_var, col_name="shortfall", func=self._model.new_int_var, lb=0, ub=SCALED_UB)
         )
-
-        for row in df_decision_agent_schedule_grouped.iter_rows(named=True):
-            self._model.add_at_most_one(row["decision_agent_schedule"])
         
-        df_interval = df_demand.filter(pl.col("demand") > 0)
-        
-        supply_vars_    = [self._model.new_int_var(0, SCALED_UB, "") for row in df_interval.iter_rows(named=True)]
-        shortfall_vars_ = [self._model.new_int_var(0, SCALED_UB, "") for row in df_interval.iter_rows(named=True)]
-
-        df_interval = (df_interval
-                       .with_columns(pl.Series("supply",    supply_vars_))
-                       .with_columns(pl.Series("shortfall", shortfall_vars_))
-        )
-
         df_interval_by_agent = (df_interval
                                 .lazy()
                                 .join(df_schedule_variant_slots.lazy(),  on=["day", "slot"],  how="left")
@@ -88,7 +84,7 @@ class ModelBuilder:
                                 )
         )
 
-        for row in df_interval_by_agent.iter_rows(named=True):
+        for row in df_interval_by_agent.iter_rows(named=True):  #change to false and reference by position for speed boost later
             terms = [v * a for v, a in zip(row["decision_agent_schedule"], row["activity"])]
             self._model.add(row["supply"] == sum(terms))
             self._model.add_max_equality(row["shortfall"], [row["demand"] - row["supply"], 0])
