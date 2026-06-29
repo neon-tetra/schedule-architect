@@ -2,21 +2,19 @@ from core.domain import Roster, QueueProfile
 from core.slot_matrix import SlotMatrix
 from solver.shifts import generate_variants
 from ortools.sat.python.cp_model import CpModel, CpSolver, OPTIMAL, FEASIBLE
+from ortools.sat.python import cp_model
 import polars as pl
 class ModelBuilder:
-#take dataframe, 1st class function, optional group by cols, and kwargs
-    def _add_at_most_one(self, df: pl.DataFrame, col_name: str, group_by_cols: list[str] | None = None, **kwargs):
-        if group_by_cols is not None:
-            for row in df.group_by(group_by_cols).agg(pl.col(col_name)).iter_rows(named=True):
-                self._model.add_at_most_one(row[col_name])
-        else:
-            self._model.add_at_most_one(df[col_name].to_list())
-        return df
 
-    def _add_model_var(self, df: pl.DataFrame, func, col_name: str, **kwargs) -> pl.DataFrame:
+    def _add_vars(self, df: pl.DataFrame, fn, col_name: str, **kwargs) -> pl.DataFrame:
         kwargs.setdefault("name", "")
-        vars_ = [func(**kwargs) for _ in range(df.height)]
+        vars_ = [fn(**kwargs) for _ in range(df.height)]
         return df.with_columns(pl.Series(col_name, vars_, dtype=pl.Object))
+    
+    def _add_constraints(self, df: pl.DataFrame, fn, args_builder) -> pl.DataFrame:
+        for row in df.iter_rows(named=True):
+            fn(*args_builder(row))
+        return df
 
     def build_and_solve(self, roster: Roster, queues: dict[str, QueueProfile], demand: SlotMatrix):
 
@@ -26,7 +24,10 @@ class ModelBuilder:
         self._model = CpModel()
 
         df_schedule_variant_slots = self._build_schedule_variants()
-        df_schedule_variants = df_schedule_variant_slots.unique(pl.col("schedule_id"))
+        df_schedule_variants = (df_schedule_variant_slots
+                                .select("schedule_id")
+                                .unique(pl.col("schedule_id"))
+        )
 
         col_agent_ids = []
         col_agent_skills = []
@@ -43,7 +44,6 @@ class ModelBuilder:
             .filter(pl.col("skill").is_in(["online_orders", "account_services"]))  # 2 skills for now
         )
 
-
         #demand df
         df_demand = pl.DataFrame(
             [{"day": d, 
@@ -57,50 +57,82 @@ class ModelBuilder:
                                       .join(df_schedule_variants.lazy(), how="cross")
                                       .unique(subset=["agent_id", "schedule_id"])
                                       .collect()
-                                      .pipe(self._add_model_var,   col_name="decision_agent_schedule", func=self._model.new_bool_var)
-                                      .pipe(self._add_at_most_one, col_name="decision_agent_schedule", group_by_cols=["agent_id"])
+                                      .pipe(self._add_vars,
+                                            col_name="decision_agent_schedule", 
+                                            fn=self._model.new_bool_var
+                                      )
+        )
+
+        (df_decision_agent_schedule
+            .group_by(["agent_id"]).agg(pl.col("decision_agent_schedule"))
+            .pipe(self._add_constraints, 
+                fn=self._model.add_at_most_one, 
+                args_builder=lambda row: [row["decision_agent_schedule"]],
+            )
         )
         
         df_interval = (df_demand
                        .filter(pl.col("demand") > 0)
-                       .pipe(self._add_model_var, col_name="supply",    func=self._model.new_int_var, lb=0, ub=SCALED_UB)
-                       .pipe(self._add_model_var, col_name="shortfall", func=self._model.new_int_var, lb=0, ub=SCALED_UB)
-        )
-        
-        df_interval_by_agent = (df_interval
-                                .lazy()
-                                .join(df_schedule_variant_slots.lazy(),  on=["day", "slot"],  how="left")
-                                .join(df_decision_agent_schedule.lazy(), on=["schedule_id", "skill"], how="left")
-                                .filter(pl.col("activity") > 0)
-                                .filter(pl.col("skill").is_in(["online_orders","account_services"]))
-                                .collect()
-                                .group_by(["skill", "day", "slot"])
-                                .agg(
-                                    pl.col("decision_agent_schedule"),
-                                    pl.col("activity"),
-                                    pl.col("supply").first(),
-                                    pl.col("shortfall").first(),
-                                    pl.col("demand").first(),
-                                )
+                       .pipe(self._add_vars, col_name="supply",    fn=self._model.new_int_var, lb=0, ub=SCALED_UB)
+                       .pipe(self._add_vars, col_name="shortfall", fn=self._model.new_int_var, lb=0, ub=SCALED_UB)
         )
 
-        for row in df_interval_by_agent.iter_rows(named=True):  #change to false and reference by position for speed boost later
-            terms = [v * a for v, a in zip(row["decision_agent_schedule"], row["activity"])]
-            self._model.add(row["supply"] == sum(terms))
-            self._model.add_max_equality(row["shortfall"], [row["demand"] - row["supply"], 0])
+        df_interval_by_agent = (
+            df_interval
+            .lazy()
+            .join(df_schedule_variant_slots.lazy(), on=["day", "slot"], how="left")
+            .join(df_decision_agent_schedule.lazy(), on=["schedule_id", "skill"], how="left")
+            .filter(pl.col("activity") > 0)
+            .filter(pl.col("skill").is_in(["online_orders", "account_services"]))
+            .collect()
+            .group_by(["skill", "day", "slot"])
+            .agg(pl.col("decision_agent_schedule"),
+                 pl.col("activity"),
+                 pl.col("supply").first(),
+                 pl.col("shortfall").first(),
+                 pl.col("demand").first(),
+            )
+            .pipe(self._add_constraints,
+                  fn=self._model.add,
+                  args_builder=lambda r: (
+                      cp_model.LinearExpr.WeightedSum(r["decision_agent_schedule"],
+                                                      [int(a) for a in r["activity"]],
+                      ) - r["supply"] == 0,
+                  ),
+            )
+            .pipe(self._add_constraints,
+                  fn=self._model.add_max_equality,
+                  args_builder=lambda r: (
+                    r["shortfall"],
+                    [int(r["demand"]) - r["supply"], 0],
+                ),
+            )
+        )
 
-        #Helper constraints - 
-        #Each agent's schedule must be >= the previous agent's schedule, to reduce symmetry
-        # df_decision_agent_schedule_sorted = (df_decision_agent_schedule
-        #                                      .sort(["agent_id", "schedule_id"])
-        #                                      .group_by("agent_id")
-        #                                      .agg(pl.col("decision_agent_schedule"))
-        #                                      .collect()
-        # )
-      #  for i in range(1, len(df_decision_agent_schedule_sorted)):
+        df_decision_agent_schedule = (
+             df_decision_agent_schedule
+            .group_by(["agent_id"])
+            .agg(pl.col("schedule_id"), 
+                   pl.col("decision_agent_schedule"), 
+                   pl.col("skill").first()
+            )
+            .pipe(self._add_vars, 
+                col_name="selected_schedule",
+                    fn=self._model.new_int_var,
+                    lb=0,
+                    ub=df_schedule_variants.height-1,
+            )            
+           .pipe(self._add_constraints,
+               fn=self._model.add,
+                   args_builder=lambda r: (
+                       r["selected_schedule"] == cp_model.LinearExpr.WeightedSum(
+                           r["decision_agent_schedule"],
+                           [s for s in r["schedule_id"]],
+                       ),
+                   )
+           )
+        )
 
-
-        #minimize over shortfall vars
         self._model.Minimize(sum(df_interval_by_agent["shortfall"]))
         
         solver = CpSolver()
@@ -182,5 +214,7 @@ SELECT * FROM schedule_slots;
         """
 
         df = ctx.execute(sql)
-        result = df.sample(df.height*.2, seed=42)
+        unique_schedule_ids = df.select("schedule_id").unique(pl.col("schedule_id"))
+        sample_ids = unique_schedule_ids.sample(unique_schedule_ids.height*.05, seed=42)
+        result = df.join(sample_ids, on="schedule_id", how="inner")
         return result
