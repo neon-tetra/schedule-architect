@@ -1,26 +1,24 @@
-from core.domain import QueueProfile, RosterEntry, Roster
+import polars as pl
+
 from core.solve_run import SolveRun
+from core.frames import QUEUE_PROFILE_SCHEMA, ROSTER_SCHEMA
 
 MAX_SOLVE_HISTORY = 5
 
 class ScenarioContext:
 
-    def __init__(self, profiles: list[QueueProfile], roster: Roster):  # Roster not list
+    def __init__(self, profiles: pl.DataFrame, roster: pl.DataFrame):
+        assert set(profiles.schema.keys()) == QUEUE_PROFILE_SCHEMA.keys(), "QueueProfile DataFrame schema mismatch."
+        assert set(roster.schema.keys())   == ROSTER_SCHEMA.keys(), "Roster DataFrame schema mismatch."
         self.profiles = profiles
-        self.roster   = roster                                          # Roster object
+        self.roster   = roster
         self._solves: list[SolveRun] = []
         self._run_counter = 0
-        self._update_roster_costs()
 
     # ── Roster ────────────────────────────────────────────────────────────────
 
-    def update_roster(self, roster: Roster):                           # Roster not list
+    def update_roster(self, roster: pl.DataFrame):
         self.roster = roster
-        self._update_roster_costs()
-    
-    def _update_roster_costs(self):
-        for entry in self.roster.entries:
-            entry.monthly_cost = sum(p.monthly_cost for p in self.profiles if p.skill_id in entry.skills)
 
     # ── Solves ────────────────────────────────────────────────────────────────
 
@@ -39,12 +37,7 @@ class ScenarioContext:
     # ── Dynamic prompt content ────────────────────────────────────────────────
 
     def get_detailed_summary(self) -> str:
-        lines = ["## Current Roster"]
-        for e in self.roster.entries:
-            lines.append(f"  {' + '.join(e.skills)}: {e.count} agents")
-
-        lines.append(f"\n{self.get_recent_solves_summary()}")
-        return "\n".join(lines)
+        raise NotImplementedError("Detailed summary generation is not yet implemented.")
 
     def get_recent_solves_summary(self) -> str:
         lines = ["## Recent Solves"]

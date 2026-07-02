@@ -1,31 +1,12 @@
 import math
-from core.domain import QueueProfile
-from core.slot_matrix import SlotMatrix
-
+import polars as pl
+from core.frames import QUEUE_PROFILE_SCHEMA, INTERVAL_SCHEMA
 
 class ErlangC:
-    """
-    Erlang C queuing model for call centre staffing.
-    All methods are stateless class methods.
-
-    The Erlang C formula models an M/M/c queue:
-        - Calls arrive randomly (Poisson process)
-        - Service times are exponentially distributed
-        - Callers wait indefinitely until answered
-
-    Core notation used in wait_probability() matches the standard formula:
-        a   = offered load in Erlangs (arrival_rate * aht_seconds)
-        c   = number of agents
-        rho = utilisation per agent (a/c), must be < 1 for a stable queue
-    """
 
     @classmethod
     def wait_probability(cls, arrival_rate: float, aht_seconds: float, agents: int) -> float:
-        """Probability that an arriving call has to wait (the Erlang C formula).
 
-        Computed in log space to avoid overflow at high agent counts.
-        Returns 1.0 for an unstable queue (utilisation >= 1).
-        """
         if arrival_rate <= 0:
             return 0.0
 
@@ -54,10 +35,7 @@ class ErlangC:
         agents: int,
         answer_within_seconds: float,
     ) -> float:
-        """Fraction of calls answered within answer_within_seconds.
 
-        Returns 1.0 when there are no arrivals.
-        """
         if arrival_rate <= 0:
             return 1.0
 
@@ -78,12 +56,7 @@ class ErlangC:
         answer_within_seconds: float,
         max_agents: int = 500,
     ) -> int:
-        """Minimum agents needed to meet the service level target for a single interval.
 
-        Starts just above the offered load (minimum for queue stability)
-        and increments until the target is reached.
-        Returns 0 when there are no arrivals.
-        """
         if arrival_rate <= 0:
             return 0
 
@@ -98,49 +71,50 @@ class ErlangC:
         return max_agents
 
     @classmethod
-    def requirements_curve(cls, env: QueueProfile) -> SlotMatrix:
-        """Derive per-interval staffing requirements across a full week.
+    def requirements_curve(cls, env: dict) -> pl.DataFrame:
+        TARGET_SL = 0.8
+        SHRINKAGE = 0.2
+        ANSWER_WITHIN_SECONDS = 20.0
 
-        Reads target_sl, answer_within_seconds, and shrinkage directly from
-        the QueueProfile so each queue carries its own service level parameters.
+        assert env.keys() == QUEUE_PROFILE_SCHEMA.keys(), "QueueProfile schema mismatch."
 
-        interval_weights must have one value per interval slot in the operating
-        window — e.g. 24 values for an 8am–8pm window at 30-min intervals.
-
-        Shrinkage inflates the Erlang minimum to account for non-productive time:
-            scheduled = ceil(erlang_minimum / (1 - shrinkage))
-
-        Returns a SlotMatrix keyed by (day, slot, skill_id) -> agents_required.
-        """
         intervals_per_hour = 2  # 30-minute slots
-        start_hour, end_hour = env.operating_hours
+        start_hour, end_hour = env["operating_hours"]
         slots_in_window = (end_hour - start_hour) * intervals_per_hour
-
-        values: dict[tuple[int, int, str], int] = {}
+        
+        rows = []
 
         for day in range(7):
             for slot_index in range(slots_in_window):
                 interval_calls = (
-                    env.weekly_volume
-                    * env.day_weights[day]
-                    * env.interval_weights[slot_index]
+                    env["weekly_volume"]
+                    * env["day_weights"][day]
+                    * env["interval_weights"][slot_index]
                 )
                 arrival_rate = interval_calls / 1800.0  # calls per second
 
                 erlang_minimum = cls.minimum_agents(
-                    arrival_rate=arrival_rate,
-                    aht_seconds=env.aht_seconds,
-                    target_service_level=env.target_sl,
-                    answer_within_seconds=env.answer_within_seconds,
+                    arrival_rate          = arrival_rate,
+                    aht_seconds           = env["aht_seconds"],
+                    target_service_level  = TARGET_SL,
+                    answer_within_seconds = ANSWER_WITHIN_SECONDS,
                 )
 
                 scheduled = (
-                    math.ceil(erlang_minimum / (1 - env.shrinkage))
-                    if env.shrinkage > 0
+                    math.ceil(erlang_minimum / (1 - SHRINKAGE))
+                    if SHRINKAGE > 0
                     else erlang_minimum
                 )
 
                 absolute_slot = (start_hour * intervals_per_hour) + slot_index
-                values[(day, absolute_slot, env.skill_id)] = scheduled
+                
+                rows.append({
+                    "day": day,
+                    "slot": absolute_slot,
+                    "skill": env["id"],
+                    "demand": scheduled,
+                })
+                
+        df_interval = pl.DataFrame(rows, schema=INTERVAL_SCHEMA)
 
-        return SlotMatrix(label=f"demand_{env.skill_id}", values=values)
+        return df_interval

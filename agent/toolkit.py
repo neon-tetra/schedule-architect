@@ -1,13 +1,13 @@
 import json
+import polars as pl
 from pydantic import BaseModel
 from   core.scenario_context import ScenarioContext
-from   core.domain           import RosterEntry, Roster
 from   core.solve_run        import SolveRun
-from   core.slot_matrix      import SlotMatrix
+from   core.frames           import INTERVAL_SCHEMA
 from solver.erlang           import ErlangC
-from solver.model_builder    import ModelBuilder
+from solver.scheduler        import build_and_solve
 
-from core.scenarios.default import DEFAULT_PROFILES, DEFAULT_ROSTER
+from core.scenarios.default import DF_QUEUE_PROFILES, DF_STARTING_ROSTER
 
 # ── Input DTOs ────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ class StatusResult(BaseModel):
 class Toolkit:
 
     def __init__(self):
-        self._context = ScenarioContext(profiles=DEFAULT_PROFILES, roster=DEFAULT_ROSTER)
+        self._context = ScenarioContext(profiles=DF_QUEUE_PROFILES, roster=DF_STARTING_ROSTER)
 
     # TODO: (A) enrich this output with queue profile data and solve history formatting
     #       (B) consider a separate condensed summary variant for mid-session use
@@ -112,20 +112,24 @@ class Toolkit:
     def _run_solve(self, inp: RunSolveInput) -> str:
         # NOTE: sync/blocking — CP-SAT solves in <100ms, no async needed
         run_id = self._context.next_run_id()
-        queues = {p.skill_id: p for p in self._context.profiles}
+        queues = self._context.profiles
 
         # Derive demand across all queues via Erlang C
-        demand_values: dict[tuple[int, int, str], int] = {}
-        for profile in self._context.profiles:
+        df_intervals = pl.DataFrame(
+            schema=INTERVAL_SCHEMA,
+        )
+        #for each row in profiles polars df
+        for profile in queues.iter_rows(named=True):
             curve = ErlangC.requirements_curve(env=profile)
-            demand_values.update(curve.values)
-        demand = SlotMatrix(label="demand", values=demand_values)
+            df_intervals = df_intervals.vstack(curve)
+
+        
 
         # Build and solve
-        result = ModelBuilder().build_and_solve(
+        result = build_and_solve(
             roster=self._context.roster,
             queues=queues,
-            demand=demand,
+            intervals=df_intervals,
         )
         result.run_id = run_id
         result.label  = inp.label
@@ -157,3 +161,45 @@ class Toolkit:
     def _get_last_solve(self) -> SolveRun | None:
         recent = self._context.recent_solves()
         return recent[0] if recent else None
+
+# import polars as pl
+# class RemoveRosterEntryInput(BaseModel):
+#     primary_skill:   str
+#     secondary_skill: str | None = None
+#     model_config = {"extra": "forbid"}
+
+# def _remove_roster_entry(self, inp: RemoveRosterEntryInput) -> str:
+#     self._context.roster = self._context.roster.filter(
+#         ~(
+#             (pl.col("primary_skill") == inp.primary_skill) &
+#             (
+#                 pl.col("secondary_skill").is_null() if inp.secondary_skill is None
+#                 else pl.col("secondary_skill") == inp.secondary_skill
+#             )
+#         )
+#     )
+#     return self._status().to_tool_string()
+# class AddRosterEntryInput(BaseModel):
+#     primary_skill:   str
+#     secondary_skill: str | None = None
+#     count:           int
+
+#     model_config = {"extra": "forbid"}
+
+# class DefineRosterInput(BaseModel):
+#     entries: list[RosterEntryInput]
+
+#     @field_validator("entries")
+#     @classmethod
+#     def at_least_one(cls, v):
+#         if not v:
+#             raise ValueError("Roster must have at least one entry")
+#         return v
+    
+# def _define_roster(self, inp: DefineRosterInput) -> str:
+#     roster_df = pl.DataFrame(
+#         [e.model_dump() for e in inp.entries],
+#         schema=ROSTER_SCHEMA,
+#     )
+#     self._context.update_roster(roster_df)
+#     return self._status().to_tool_string()
