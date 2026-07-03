@@ -1,7 +1,56 @@
 scheduler planning
 
-skillgroup = unique combo of primary/secondary(optional) skill (roughly 12)
-schedule = one full set of per-interval activities across all 7 days (roughly 100)
 
-One int var per skill per schedule, lb = 0 , ub = count of skillgroup
+df_roster
+primary  |  secondary  |  count
+skill_a  |  skill_b    | 4
+skill_c  |  None       | 6
+skill_c  |  skill_b    | 2
+skill_d  |  skill_e    | 7
+
+
+"skill group" = unique combo of primary/secondary(optional) = one line in df_roster
+schedule = one full set of per-interval activities across all 7 days
+One int var per schedule per skill group, where ub = count
+
+df_schedule_activity
+
+schedule_id  |  day  |  slot  |  activity
+1            |  0    |  20    |  2
+1            |  0    |  21    |  1
+activity = 2 : full 30min slot worked
+activity = 1 : half of 30min slot worked (15min break slot)
+activity = 0 : 30min lunch or off-the-clock
+
+df_intervals
+
+skill   |  day  |  slot  |  demand  | {supply} | {shortfall}
+skill_a |  0    |  20    |  8       | {x}      | {demand-x or 0}
+
+how do we efficiently go from allocating agents to schedules, to calculating per-interval
+supply
+
+df_schedule_activity has the potential to be massive
+
+we need to be a bit clever here
+
+blocks - add a block number to df_schedule_activity - multiskill agents can flip between them
+where does block live?
+some kind of relational model is materializing here
+
+skillgroup->scheduleid->blocknum , 12 * 100 * 4 * 5 = ~25k int vars
+    except singleskill agents skip the blocknum assignments, and double-skill ones have twice as many
+
+each skill's per-slot supply is the sum...there has to be something better than this
+online+floral having 2000 intvar assignment variables seems crazy
+then again, the old incarnation was worse
+each skillgroup + schedule actually would need that many vars
+
+
+
+[workweek_pattern] -> [shift pattern] -> [block pattern]
+[workweek + shift becomes the schedule id - not determined directly]
+[blocks specified for dual shift agents - it becomes 20 pairs of either/or bools]
+at max, 1 of these per agent - no need for 100 boolvars
+
 
