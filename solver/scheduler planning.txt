@@ -1,0 +1,7 @@
+scheduler planning
+
+skillgroup = unique combo of primary/secondary(optional) skill (roughly 12)
+schedule = one full set of per-interval activities across all 7 days (roughly 100)
+
+One int var per skill per schedule, lb = 0 , ub = count of skillgroup
+
