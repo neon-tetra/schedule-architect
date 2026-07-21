@@ -1,0 +1,21 @@
+model = cp_model.CpModel()
+
+var_i = model.new_int_var(0, 100, "var_i")
+var_a = model.new_int_var(0, 100, "var_a")
+model.add(var_i == 75)  # force i=75, which is >50
+
+conditional_var = model.new_bool_var("cond")
+inverse_conditional_var = model.new_bool_var("inv_cond")
+
+model.add(var_i > 50).only_enforce_if(conditional_var)
+model.add(var_i > 50).only_enforce_if(inverse_conditional_var.Not())
+model.add(inverse_conditional_var == 1).only_enforce_if(conditional_var.Not())
+
+model.add(var_a == var_i).only_enforce_if(conditional_var)
+
+solver = cp_model.CpSolver()
+solver.solve(model)
+print("cond:", solver.value(conditional_var))
+print("inv:",  solver.value(inverse_conditional_var))
+print("var_i:", solver.value(var_i))
+print("var_a:", solver.value(var_a))

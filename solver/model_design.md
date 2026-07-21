@@ -1,4 +1,66 @@
 
+For each skillgroup, expanded to the count of agents, create a scheduletemplate
+
+
+Scheduletemplate has 2 lines
+
+schedule_template
+
+schedule_template_idx	skillgroup_id	assigned_agents_var	start_slot_idx_var	break_1_offset_var	lunch_offset_var break_2_offset_var	
+
+shift_start_val	break_1_val	lunch_val	break_2_val	shift_end_val
+
+
+skill_types
+work
+break
+lunch
+
+skill_subtypes
+work_a
+work_b
+break_a
+break_b
+
+create one len-48 bool list for work hours
+if each bool between start and end times, 1
+
+create one len-48 bool list per skill type
+use add_element to tie start/break/lunch to each val
+workval = workhours - break - lunch
+
+next, create 7 len-48 bool lists per skill subtype
+for each, sum of each pair per day/slot = the parent slot
+work_a = 0 if work_b at prior index = 1
+work_b = 0 if work_a at prior index = 1
+work_z -- sum of work_z = 14 if day_off = 0
+
+break_a = 0 if work_b at prior and next index = 1
+break_b = 0 if work_a at prior and next index = 1
+break_z -- sum of break_z = 2 if day_off = 0
+
+at this point supply is just the relevant sums
+ez-pz
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+IGNORE BELOW
 ## Inputs:
 
 queues - only needed as canonical list of skills
@@ -88,6 +150,8 @@ Sum of agents_assigned_block_var over skillgroup must equal num_agents in roster
 For dual-skill skillgroups, per block_idx over skill, solver selects agents_assigned_block_var
     ...sum of agents_assigned_block_var for block over skill must equal agents_assigned_schedule_var that agents_assigned_schedule_var
 For single-skill skillgroups, agents_assigned_block_var equals agents_assigned_schedule_var for all blocks
+Symmetry-break(order) roster_schedule_idx over skillgroup by schedule_id_val
+
 
 
 
