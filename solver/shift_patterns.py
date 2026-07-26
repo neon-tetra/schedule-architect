@@ -1,32 +1,37 @@
-"""Shift-shape menu, as a single DataFrame: one row per (skill_view,
-shift_family, per-segment skill assignment) combination -- 2 x 6 x 16 = 192
-rows, each carrying its own flat pattern_id alongside the ids that produce
-it, plus the resulting 29-slot numeric lookup pattern.
+"""Shift-shape geometry, split into two small skill-independent arrays
+instead of one big skill-aware one.
 
-Generated from a small, code-derived spec (SHIFT_FAMILIES) rather than
-hand-typed, so there's nothing to transcribe wrong the way a fully
-enumerated table would risk.
+Earlier version baked (skill_view, family, derivation) all into one flat
+array's index, giving 2 x 6 x 16 x 29 = 5,568 entries -- and since
+add_element rebuilds its whole array argument into a fresh constraint proto
+on every single call (cost scales with array length, not with how many
+times the same Python list gets reused), that array size was directly
+driving real Python-side and presolve-side cost.
 
-pattern_id is a straight linear combination of three independent choices --
-skill_view (0-1), family_id (0-5), derivation (0-15, the 4-bit segment
-assignment):
+The fix: work/break/lunch state and "which of the 4 segments is this
+position part of" never actually depended on skill at all -- only *segment
+identity* is geometric (family + position), while *which skill a segment
+serves* is a separate, per-schedule choice (4 bools, not baked into this
+menu). Splitting them means both arrays here only need family x slot:
 
-    pattern_id = skill_view*96 + family_id*16 + derivation
-    flat_index = pattern_id*29 + (slot - shift_start_offset - EARLIEST_START_TIME_SLOT + PAD)
+    work_state_array: 6 families x 29 slots = 174 entries -- 0/1/2, same
+        meaning as before (2 = full work slot, 1 = half a work slot on a
+        break, 0 = lunch or off).
+    block_id_array: same 174-entry shape -- which segment (1-4) this
+        position belongs to, 0 for lunch/padding (breaks inherit their
+        preceding work segment's id, same rule as before: R1 -> segment 1,
+        R2 -> segment 3).
 
-shift_start_offset is a plain subtraction term here, not its own array
-dimension (an earlier version multiplied the array by 7 to sidestep the
-padding question -- this is smaller and turns out not to need that).
-The reason a single shared, both-sides-padded pattern works for every
-offset: real work sits at local positions PAD..PAD+16 for *any* offset,
-because `slot - offset` cancels the fact that a later start shifts the
-absolute slots by exactly the same amount. Only the padding needs to be
-wide enough to cover queries that fall outside a given offset's own
-working window in either direction -- PAD slots on each side (6, the max
-offset) is exactly enough, verified against the actual min/max of
-`slot - offset` across the full range.
+Both indexed identically:
+    flat_index = shift_family_var * WORKDAY_LENGTH
+               + (slot - shift_start_offset - EARLIEST_START_TIME_SLOT + PAD)
+
+Which skill a slot counts toward is resolved separately, in scheduler.py,
+via a second tiny (5-entry) add_element against the schedule's own 4
+segment-skill bools, keyed by whichever segment block_id_array reports --
+never a 16-way lookup, since segment identity and segment-skill-assignment
+are independent questions once separated like this.
 """
-import itertools
 import polars as pl
 
 EARLIEST_START_TIME_SLOT = 16
@@ -35,11 +40,24 @@ SHIFT_LENGTH_SLOTS = 17
 MAX_START_OFFSET = LATEST_START_TIME_SLOT - EARLIEST_START_TIME_SLOT  # 6
 PAD = MAX_START_OFFSET  # padding needed on EACH side of the real 17-slot pattern
 WORKDAY_LENGTH = PAD + SHIFT_LENGTH_SLOTS + PAD  # 29
+NUM_BLOCKS = 4  # breaks + lunch split a shift into this many continuous work segments
 
 # each triple is (work slots before break 1, before lunch, before break 2).
 # the work slots remaining after break 2 always come out to 3: every triple
 # sums to 11, and 17 - 11 - 3 (the two breaks + the one lunch slot) = 3.
 SHIFT_FAMILIES = [(3, 3, 5), (3, 5, 3), (5, 3, 3), (4, 4, 3), (4, 3, 4), (3, 4, 4)]
+
+# label -> (work_state, block_id). a break always takes the block id of the
+# work segment it immediately follows -- R1 locks to segment 1, R2 to
+# segment 3 -- so there are only 4 independently-choosable segments, not 6.
+_LABEL_TO_STATE_BLOCK = {
+    "W1": (2, 1), "R1": (1, 1),
+    "W2": (2, 2),
+    "W3": (2, 3), "R2": (1, 3),
+    "W4": (2, 4),
+    "L": (0, 0),
+    "X": (0, 0),
+}
 
 
 def _real_pattern(a, b, c):
@@ -76,69 +94,29 @@ def _padded_labels(real_pattern):
     return ["X"] * PAD + real_pattern + ["X"] * PAD
 
 
-def _to_numeric(labels, skill):
-    # a work slot in this skill's own blocks contributes 2, a break in this
-    # skill's own blocks contributes 1 (half a work slot -- you still work
-    # 15 of the 30 minutes on break), everything else (the other skill's
-    # blocks, lunch, padding) contributes 0.
-    numeric = []
-    for label in labels:
-        if label.startswith("W") and label.endswith(skill):
-            numeric.append(2)
-        elif label.startswith("R") and label.endswith(skill):
-            numeric.append(1)
-        else:
-            numeric.append(0)
-    return numeric
+family_rows = []
+for family_id, real_pattern in enumerate(real_patterns):
+    labels = _padded_labels(real_pattern)
+    for local_slot, label in enumerate(labels):
+        work_state, block_id = _LABEL_TO_STATE_BLOCK[label]
+        family_rows.append({
+            "shift_family_id": family_id,
+            "local_slot": local_slot,
+            "label": label,
+            "work_state": work_state,
+            "block_id": block_id,
+        })
 
+family_geometry = pl.DataFrame(family_rows)
 
-rows = []
-pattern_id = 0
-# skill outermost, then family, then derivation -- one flat array laid out
-# skill/family/derivation/slot, strides 96/16/1 (each further multiplied by
-# 29 for the slot dimension). a schedule's real choices (family, the 4
-# segment bits) drive both its primary-skill index and its secondary-skill
-# index; they differ only by the skill_view term. shift_start_offset is
-# handled at read time, not baked into the menu.
-for skill_view, skill in enumerate(("A", "B")):
-    for family_id, real_pattern in enumerate(real_patterns):
-        # a break always takes the skill of the work block it immediately
-        # follows -- R1 locks to W1's skill, R2 locks to W3's skill -- so
-        # there are only 4 independently-choosable segments, not 6.
-        for derivation, (w1_sec, w2_sec, w3_sec, w4_sec) in enumerate(
-                itertools.product((0, 1), repeat=4)):
-            bucket_skill = {
-                "W1": "B" if w1_sec else "A", "R1": "B" if w1_sec else "A",
-                "W2": "B" if w2_sec else "A",
-                "W3": "B" if w3_sec else "A", "R2": "B" if w3_sec else "A",
-                "W4": "B" if w4_sec else "A",
-            }
-            base_labels = [label + bucket_skill[label] if label in bucket_skill else label
-                           for label in real_pattern]
-            labels = _padded_labels(base_labels)
-            rows.append({
-                "pattern_id": pattern_id,
-                "skill_view": skill_view,
-                "shift_family_id": family_id,
-                "derivation": derivation,
-                "w1_secondary": w1_sec, "w2_secondary": w2_sec,
-                "w3_secondary": w3_sec, "w4_secondary": w4_sec,
-                "labels": labels,
-                "numeric_pattern": _to_numeric(labels, skill),
-            })
-            pattern_id += 1
-
-pattern_menu = pl.DataFrame(rows)
-NUM_PATTERNS = len(pattern_menu)
-
-# ready-to-use flat array for a single add_element call: index with
-# pattern_id * WORKDAY_LENGTH + (slot - shift_start_offset - EARLIEST_START_TIME_SLOT + PAD),
-# where pattern_id = skill_view*96 + shift_family_id*16 + derivation.
-flattened_pattern_values = [v for pattern in pattern_menu["numeric_pattern"] for v in pattern]
+# flat_index = shift_family_var * WORKDAY_LENGTH +
+#              (slot - shift_start_offset - EARLIEST_START_TIME_SLOT + PAD)
+work_state_array = family_geometry.sort(["shift_family_id", "local_slot"])["work_state"].to_list()
+block_id_array = family_geometry.sort(["shift_family_id", "local_slot"])["block_id"].to_list()
 
 
 if __name__ == "__main__":
     pl.Config.set_ascii_tables(True)
     pl.Config.set_tbl_cols(-1)
-    print(pattern_menu.drop("labels"))
-    print(f"\n{NUM_PATTERNS} total patterns, {len(flattened_pattern_values)} flattened values")
+    print(family_geometry)
+    print(f"\n{len(work_state_array)} entries each (work_state_array, block_id_array)")
