@@ -17,6 +17,29 @@ chainlit run app.py
 
 There are no automated tests or lint scripts configured.
 
+### `dfor` dependency (one-time venv setup)
+
+`solver/` builds its CP-SAT model through `dfor` — a sibling project at
+`active/dfor/`, developed in place rather than installed as a package. It's
+made importable (`from problem import Problem`, `import model_view`, etc.,
+with no `sys.path` code needed in this repo) via a `.pth` file:
+
+```
+schedule-architect/.venv/Lib/site-packages/dfor.pth
+```
+
+containing a single line, the absolute path to the dfor directory:
+
+```
+C:\neon_tetra\active\dfor
+```
+
+This lives inside `.venv`, which is gitignored, so it does **not** survive a
+fresh clone or a rebuilt venv — recreate this file (same path, same single
+line) any time the venv is rebuilt from `requirements.txt`. If `dfor` ever
+gets packaged/published properly, this step goes away in favor of a normal
+`pip install`.
+
 ## Architecture overview
 
 Schedule Architect is a conversational workforce planning agent. The user directs a call centre staffing scenario through natural language; the agent calls tools to mutate the model, runs a CP-SAT optimiser, and surfaces results as Plotly charts mid-conversation.

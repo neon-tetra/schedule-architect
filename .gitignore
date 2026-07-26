@@ -30,3 +30,6 @@ Thumbs.db
 
 # html
 *.html
+
+# generated diagnostic dumps (model_view.json, etc.)
+*.json
