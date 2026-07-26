@@ -1,122 +1,154 @@
-"""Shift-shape geometry, split into two small skill-independent arrays
-instead of one big skill-aware one.
+"""Hourly shift-shape geometry -- 4 core work-state families, 10 valid
+(family, segment-extension) combos, tied together via add_allowed_assignments
+instead of one flat 0-9 family int.
 
-Earlier version baked (skill_view, family, derivation) all into one flat
-array's index, giving 2 x 6 x 16 x 29 = 5,568 entries -- and since
-add_element rebuilds its whole array argument into a fresh constraint proto
-on every single call (cost scales with array length, not with how many
-times the same Python list gets reused), that array size was directly
-driving real Python-side and presolve-side cost.
+The underlying shift is still a 17-slot (30-min) pattern with a break, lunch,
+and second break, each needing >=3 real work slots from the shift boundary
+and from each other -- 10 raw (break1, lunch, break2) positions satisfy that.
+Collapsing to hourly blocks only needs 4 distinct *work_state* shapes (it
+never depends on exactly where the slack landed, only on whether each of the
+four gaps has any at all) -- but two positions can share a work_state shape
+while assigning one block to a different segment, so block_id still needs
+the full 10-way resolution to stay correct (see the scheduler discussion:
+(3,7,12) and (3,7,13) both read w4,w3,w4,w2,w4,w4,w3,w4,w4, but block 6
+belongs to segment 4 in one and segment 3 in the other).
 
-The fix: work/break/lunch state and "which of the 4 segments is this
-position part of" never actually depended on skill at all -- only *segment
-identity* is geometric (family + position), while *which skill a segment
-serves* is a separate, per-schedule choice (4 bools, not baked into this
-menu). Splitting them means both arrays here only need family x slot:
+Rather than track that as one opaque 0-9 int, each real position is also
+described by which of its 4 segments picked up extra length beyond the
+3-slot minimum (there are only 2 "slack" slots total to distribute across
+the 4 gaps, so at most 2 of the 4 seg*_extended bools are ever set). That
+gives the solver 4 legible, independently-hintable bools instead of one
+opaque family number. allowed_combos ties (family, 4 bools) to the resulting
+combo_id via a single 10-row table constraint -- add_allowed_assignments
+both blocks the 54 (of 4*16) bool combinations that aren't real positions,
+and derives combo_id for free, since every listed row already pairs a unique
+combo_id with its (family, bools). combo_id then drives block_id_array
+exactly like the old flat family int did; shift_family_var (now just 0-3)
+drives the now-4x-smaller work_state_array directly.
 
-    work_state_array: 6 families x 29 slots = 174 entries -- 0/1/2, same
-        meaning as before (2 = full work slot, 1 = half a work slot on a
-        break, 0 = lunch or off).
-    block_id_array: same 174-entry shape -- which segment (1-4) this
-        position belongs to, 0 for lunch/padding (breaks inherit their
-        preceding work segment's id, same rule as before: R1 -> segment 1,
-        R2 -> segment 3).
-
-Both indexed identically:
-    flat_index = shift_family_var * WORKDAY_LENGTH
-               + (slot - shift_start_offset - EARLIEST_START_TIME_SLOT + PAD)
-
-Which skill a slot counts toward is resolved separately, in scheduler.py,
-via a second tiny (5-entry) add_element against the schedule's own 4
-segment-skill bools, keyed by whichever segment block_id_array reports --
-never a 16-way lookup, since segment identity and segment-skill-assignment
-are independent questions once separated like this.
+Every hour-block belongs to exactly one segment (never two) -- a block that
+touches an event (break or lunch) only ever touches the ONE segment sitting
+next to it, given the >=3-slot minimum gap. That's what keeps the 4-segment
+skill-assignment scheme (one bool per segment, looked up by block_id) valid
+at hourly resolution without any bespoke per-family logic.
 """
 import polars as pl
 
-EARLIEST_START_TIME_SLOT = 16
-LATEST_START_TIME_SLOT = 22
-SHIFT_LENGTH_SLOTS = 17
-MAX_START_OFFSET = LATEST_START_TIME_SLOT - EARLIEST_START_TIME_SLOT  # 6
-PAD = MAX_START_OFFSET  # padding needed on EACH side of the real 17-slot pattern
-WORKDAY_LENGTH = PAD + SHIFT_LENGTH_SLOTS + PAD  # 29
-NUM_BLOCKS = 4  # breaks + lunch split a shift into this many continuous work segments
+EARLIEST_START_TIME_SLOT = 8  # hour-of-day, not a 30-min slot index
+LATEST_START_TIME_SLOT = 11
+SHIFT_LENGTH_SLOTS = 9  # 8 full hour-blocks + 1 half-hour tail block
+MAX_START_OFFSET = LATEST_START_TIME_SLOT - EARLIEST_START_TIME_SLOT  # 3
+PAD = MAX_START_OFFSET  # padding needed on EACH side of the real 9-block pattern
+WORKDAY_LENGTH = PAD + SHIFT_LENGTH_SLOTS + PAD  # 15
+NUM_BLOCKS = 4  # 4 skill-assignable segments -- unrelated to NUM_CORE_FAMILIES below
 
-# each triple is (work slots before break 1, before lunch, before break 2).
-# the work slots remaining after break 2 always come out to 3: every triple
-# sums to 11, and 17 - 11 - 3 (the two breaks + the one lunch slot) = 3.
-SHIFT_FAMILIES = [(3, 3, 5), (3, 5, 3), (5, 3, 3), (4, 4, 3), (4, 3, 4), (3, 4, 4)]
+_RAW_SHIFT_LENGTH = 17  # the underlying 30-min-resolution shift length
 
-# label -> (work_state, block_id). a break always takes the block id of the
-# work segment it immediately follows -- R1 locks to segment 1, R2 to
-# segment 3 -- so there are only 4 independently-choosable segments, not 6.
-_LABEL_TO_STATE_BLOCK = {
-    "W1": (2, 1), "R1": (1, 1),
-    "W2": (2, 2),
-    "W3": (2, 3), "R2": (1, 3),
-    "W4": (2, 4),
-    "L": (0, 0),
-    "X": (0, 0),
-}
+# every valid (break1, lunch, break2) position: >=3 real work slots in each
+# of the four gaps (start->b1, b1->l, l->b2, b2->end). 14 work slots split
+# into 4 gaps of >=3 leaves 2 slack slots to distribute -- C(2+3, 3) = 10.
+_VALID_POSITIONS = [
+    (b1, l, b2)
+    for b1 in range(_RAW_SHIFT_LENGTH)
+    for l in range(_RAW_SHIFT_LENGTH)
+    for b2 in range(_RAW_SHIFT_LENGTH)
+    if (b1 > 2) and (l - b1 > 3) and (b2 - l > 3) and (_RAW_SHIFT_LENGTH - b2 > 3)
+]
+
+_SLOT_WEIGHT = {"work": 2, "break": 1, "lunch": 0}  # 30-min-slot contribution
 
 
-def _real_pattern(a, b, c):
-    # the unpadded 17-slot shape -- position 0 is always this schedule's
-    # own first work slot, wherever that actually falls in absolute time.
-    pattern = []
-    for counter in range(1, SHIFT_LENGTH_SLOTS + 1):
-        if counter <= a:
-            label = "W1"
-        elif counter == a + 1:
-            label = "R1"
-        elif counter <= a + b + 1:
-            label = "W2"
-        elif counter == a + b + 2:
-            label = "L"
-        elif counter <= a + b + c + 2:
-            label = "W3"
-        elif counter == a + b + c + 3:
-            label = "R2"
-        else:
-            label = "W4"
-        pattern.append(label)
-    return pattern
+def _real_pattern(b1, l, b2):
+    """One (work_state, block_id) pair per real hour-block (9 of them).
+
+    work_state sums each slot's own weight over the pair -- work=2, break=1
+    (a break is only 15 min, so the agent's still half-present), lunch=0
+    (the full 30 min). block_id is read off whichever slot in the pair is
+    real "work" -- never assumed fixed for a given break, since whether a
+    break pairs with the segment before or after it depends on b1/b2's
+    parity.
+    """
+    def zone(idx):
+        if idx == l:
+            return ("lunch", None)
+        if idx in (b1, b2):
+            return ("break", None)
+        if idx < b1:
+            return ("work", 1)
+        if idx < l:
+            return ("work", 2)
+        if idx < b2:
+            return ("work", 3)
+        return ("work", 4)
+
+    zones = [zone(i) for i in range(_RAW_SHIFT_LENGTH)]
+    blocks = []
+    for i in range(0, _RAW_SHIFT_LENGTH, 2):
+        pair = [zones[i]] if i == _RAW_SHIFT_LENGTH - 1 else [zones[i], zones[i + 1]]
+        work_state = sum(_SLOT_WEIGHT[kind] for kind, _ in pair)
+        segment_ids = {seg for kind, seg in pair if kind == "work"}
+        assert len(segment_ids) == 1, f"block has zero or more than one segment: {pair}"
+        blocks.append((work_state, segment_ids.pop()))
+    return blocks
 
 
-real_patterns = [_real_pattern(a, b, c) for a, b, c in SHIFT_FAMILIES]
+def _gaps(b1, l, b2):
+    # the 4 segment lengths, each guaranteed >=3 by _VALID_POSITIONS.
+    return (b1, l - b1 - 1, b2 - l - 1, (_RAW_SHIFT_LENGTH - 1) - b2)
 
 
-def _padded_labels(real_pattern):
-    # pad both sides by PAD -- the same padded pattern is correct for
-    # every offset value, since the offset subtraction in flat_index
-    # re-centers real work onto positions PAD..PAD+16 regardless of which
-    # offset a given schedule actually picked.
-    return ["X"] * PAD + real_pattern + ["X"] * PAD
+# group the 10 valid positions by their work_state-only shape -- this is the
+# 4-way split, since work_state never depends on exactly which segment
+# absorbed the slack, only on whether each gap has any.
+_by_work_state = {}
+for _pos in _VALID_POSITIONS:
+    _shape = tuple(ws for ws, _ in _real_pattern(*_pos))
+    _by_work_state.setdefault(_shape, []).append(_pos)
+
+NUM_CORE_FAMILIES = len(_by_work_state)  # 4
+NUM_COMBOS = len(_VALID_POSITIONS)  # 10
+
+# allowed_combos: (family_id, seg1_extended, seg2_extended, seg3_extended,
+# seg4_extended, combo_id) -- one row per real position. seg*_extended
+# marks whether that segment picked up any slack beyond its 3-slot minimum.
+allowed_combos = []
+_work_state_shapes = [None] * NUM_CORE_FAMILIES
+_block_id_shapes = [None] * NUM_COMBOS
+_combo_id = 0
+for _family_id, (_shape, _positions) in enumerate(_by_work_state.items()):
+    _work_state_shapes[_family_id] = _shape
+    for _pos in _positions:
+        _extra = tuple(g - 3 for g in _gaps(*_pos))
+        _seg_extended = tuple(1 if e > 0 else 0 for e in _extra)
+        allowed_combos.append((_family_id, *_seg_extended, _combo_id))
+        _block_id_shapes[_combo_id] = tuple(bid for _, bid in _real_pattern(*_pos))
+        _combo_id += 1
 
 
-family_rows = []
-for family_id, real_pattern in enumerate(real_patterns):
-    labels = _padded_labels(real_pattern)
-    for local_slot, label in enumerate(labels):
-        work_state, block_id = _LABEL_TO_STATE_BLOCK[label]
-        family_rows.append({
-            "shift_family_id": family_id,
-            "local_slot": local_slot,
-            "label": label,
-            "work_state": work_state,
-            "block_id": block_id,
-        })
+def _padded(values, pad_value):
+    # pad both sides by PAD -- same padded pattern is correct for every
+    # offset value, since the offset subtraction in flat_index re-centers
+    # real work onto positions PAD..PAD+8 regardless of which offset a given
+    # schedule actually picked.
+    pad = [pad_value] * PAD
+    return pad + list(values) + pad
 
-family_geometry = pl.DataFrame(family_rows)
 
 # flat_index = shift_family_var * WORKDAY_LENGTH +
-#              (slot - shift_start_offset - EARLIEST_START_TIME_SLOT + PAD)
-work_state_array = family_geometry.sort(["shift_family_id", "local_slot"])["work_state"].to_list()
-block_id_array = family_geometry.sort(["shift_family_id", "local_slot"])["block_id"].to_list()
+#              (hour_slot - shift_start_offset - EARLIEST_START_TIME_SLOT + PAD)
+work_state_array = [v for shape in _work_state_shapes for v in _padded(shape, 0)]
+
+# flat_index = combo_id_var * WORKDAY_LENGTH + (same slot/offset arithmetic)
+block_id_array = [v for shape in _block_id_shapes for v in _padded(shape, 0)]
 
 
 if __name__ == "__main__":
     pl.Config.set_ascii_tables(True)
     pl.Config.set_tbl_cols(-1)
-    print(family_geometry)
-    print(f"\n{len(work_state_array)} entries each (work_state_array, block_id_array)")
+    pl.Config.set_tbl_rows(-1)
+    print(f"{NUM_CORE_FAMILIES} core families, {NUM_COMBOS} valid combos")
+    print("allowed_combos (family, seg1_ext, seg2_ext, seg3_ext, seg4_ext, combo_id):")
+    for row in allowed_combos:
+        print(" ", row)
+    print(f"\nwork_state_array: {len(work_state_array)} entries")
+    print(f"block_id_array: {len(block_id_array)} entries")

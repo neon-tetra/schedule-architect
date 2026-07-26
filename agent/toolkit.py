@@ -143,9 +143,12 @@ class Toolkit:
     # ── Status builder (shared by all handlers) ───────────────────────────────
 
     def _status(self, run_id: str | None = None, label: str | None = None) -> StatusResult:
-        roster_str = self._context.roster.summary(
-            {p.skill_id: p for p in self._context.profiles}
-        )
+        # self._context.roster is a plain DataFrame (see ScenarioContext),
+        # not a Roster object -- no such wrapper class exists in this
+        # codebase yet. A real per-skill summary (using profiles) is
+        # unbuilt, matching get_detailed_summary()'s NotImplementedError
+        # above; this is just the crash-free stand-in.
+        roster_str = str(self._context.roster)
         solves_str = "\n".join(
             f"  {r.run_id}: '{r.label}'"
             for r in self._context.recent_solves()

@@ -17,8 +17,9 @@ except ImportError:
     from problem import Problem
     from report import solved as dfor_solved
 
-from solver.shift_patterns import (work_state_array, block_id_array, NUM_BLOCKS,
-                                    EARLIEST_START_TIME_SLOT, PAD, WORKDAY_LENGTH)
+from solver.shift_patterns import (work_state_array, block_id_array, allowed_combos, NUM_BLOCKS,
+                                    NUM_CORE_FAMILIES, NUM_COMBOS,
+                                    EARLIEST_START_TIME_SLOT, MAX_START_OFFSET, PAD, WORKDAY_LENGTH)
 
 TIMING_ENABLED = True  # flip to False to silence every _t(...) call below without deleting them
 
@@ -65,30 +66,51 @@ def _log_benchmark(label, status, solver, frames, path="benchmark_log.csv"):
 def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.DataFrame) -> pl.DataFrame:
     model = cp_model.CpModel()
     problem = Problem(model)
-    SCALED_UB = 50
+    # raw_state_var now maxes at 4 (was 2 at 30-min resolution), so a single
+    # fully-staffed contribution can reach 4 * AGENT_UPPER_BOUND -- bumped
+    # from 50 to keep the same headroom multiple this had before rather than
+    # silently clipping a legitimate high-demand interval.
     AGENT_UPPER_BOUND = 25  # generous per-template cap; the per-skillgroup sum constraint enforces the real total
+    SCALED_UB = 4 * AGENT_UPPER_BOUND  # 100
 
     problem.diagnostic_mode = False
     _t = _make_timer()
 
+    # slots_in_scope is in HOUR units now (8..19 inclusive by default) --
+    # everything downstream (schedule_day_slot's cross join, the interval
+    # aggregation below) shares this one derivation instead of each
+    # recomputing their own window.
+    slots_in_scope = list(range(EARLIEST_START_TIME_SLOT, EARLIEST_START_TIME_SLOT + WORKDAY_LENGTH - PAD))
+
+    # raw interval data still arrives on the old 30-min grid -- condense
+    # pairs of slots into hour blocks here rather than upstream, since
+    # Erlang C itself is still computed at 30-min resolution (coarsening
+    # arrival-rate curves before the erlang math would lose real accuracy).
+    # min/max here in 30-min units bracket exactly the hour window above:
+    # min_slot_30 = first hour's first half; max_slot_30 = last in-scope
+    # hour's first half. That last hour's SECOND half (max_slot_30 + 1) is
+    # deliberately excluded -- no (family, offset) combination ever reaches
+    # it, since the latest-starting shift's own pattern ends exactly there
+    # (the trailing half-hour tail block covered by max_slot_30 alone).
+    # Including it would silently inflate that one hour's demand relative to
+    # what any schedule could ever actually cover.
+    min_slot_30 = min(slots_in_scope) * 2
+    max_slot_30 = max(slots_in_scope) * 2
     intervals = (intervals
             .select(["skill", "day", "slot", "demand"])
-            # 16..38 inclusive is the true window: latest start (22) + shift
-            # length (17) - 1 = 38 is the last slot any schedule could ever
-            # occupy. 39 was never a real slot -- including it both wasted a
-            # row and, worse, could compute an index one past the end of the
-            # (now-sliced) pattern array for the highest family/derivation
-            # combination at the earliest offset.
-            .filter((pl.col("slot") >= 16) & (pl.col("slot") <= 38)))
+            .with_columns(demand=pl.col("demand") * 2)
+            .filter((pl.col("slot") >= min_slot_30) & (pl.col("slot") <= max_slot_30))
+            .with_columns(slot=pl.col("slot") // 2)
+            .group_by(["skill", "day", "slot"])
+            .agg(pl.col("demand").sum()))
     _t("intervals filtered")
 
 
     # ==================== 1. schedules: one row per potential agent ====================
-    shift_start_domain = cp_model.Domain.FromValues([0, 2, 4, 6])
     schedules = (roster
         .select("primary_skill", "secondary_skill", "count")
         .rename({"count": "skillgroup_agent_count"})
-        .with_columns(schedule_template_count = 2)
+        .with_columns(schedule_template_count = 3)
         .with_columns(pl.int_ranges(0, pl.col("schedule_template_count")).alias("skillgroup_schedule_index"))
         .explode("skillgroup_schedule_index")
         .sort("primary_skill", "secondary_skill")
@@ -96,7 +118,19 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         .select("primary_skill", "secondary_skill", "skillgroup_agent_count", "schedule_id")
         .pipe(problem.new_bool_var, "schedule_active")
         .pipe(problem.new_int_var, "schedule_agent_count_var", lb=0, ub=AGENT_UPPER_BOUND)
-        .pipe(problem.new_int_var, "shift_family_var", lb=0, ub=5)
+        .pipe(problem.new_int_var, "shift_family_var", lb=0, ub=NUM_CORE_FAMILIES - 1)
+        # seg*_extended_var: does this segment carry any of the 2 "slack"
+        # work-slots beyond its 3-slot minimum -- a geometric fact about
+        # break/lunch placement, independent of skill. Paired with
+        # shift_family_var via allowed_combos below, these 4 bools + family
+        # uniquely determine combo_id, which is what actually drives
+        # block_id_array (see the schedule_day_slot section). Legible,
+        # individually-hintable bools instead of one opaque 0-9 int.
+        .pipe(problem.new_bool_var, "seg1_extended_var")
+        .pipe(problem.new_bool_var, "seg2_extended_var")
+        .pipe(problem.new_bool_var, "seg3_extended_var")
+        .pipe(problem.new_bool_var, "seg4_extended_var")
+        .pipe(problem.new_int_var, "combo_id_var", lb=0, ub=NUM_COMBOS - 1)
         # replaces the old single 0-15 "derivation" int -- one bool per
         # segment (is this segment working the secondary skill), same
         # "only 4 independently-choosable segments" fact as before, just
@@ -107,8 +141,19 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         .pipe(problem.new_bool_var, "seg2_is_secondary_var")
         .pipe(problem.new_bool_var, "seg3_is_secondary_var")
         .pipe(problem.new_bool_var, "seg4_is_secondary_var")
-        .pipe(problem.new_int_var_from_domain, "shift_start_offset_var", domain=shift_start_domain))
+        .pipe(problem.new_int_var, "shift_start_offset_var", lb=0, ub=MAX_START_OFFSET))
     _t("schedules vars created")
+
+    # ties (family, 4 extended bools) to combo_id -- a single 10-row table
+    # constraint that both blocks the 54 (of 4*16) bool combinations that
+    # aren't real positions, and derives combo_id for free, since every
+    # listed row already pairs a unique combo_id with its (family, bools).
+    (schedules
+        .pipe(problem.add_allowed_assignments, lambda row: (
+            [row["shift_family_var"], row["seg1_extended_var"], row["seg2_extended_var"],
+             row["seg3_extended_var"], row["seg4_extended_var"], row["combo_id_var"]],
+            allowed_combos,
+        )))
 
 
     # .over(...) scopes the shift to each skillgroup -- without it, the last
@@ -121,19 +166,21 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         .filter(pl.col("schedule_active_prev").is_not_null())
         .pipe(problem.add, lambda row: (row["schedule_active_prev"] >= row["schedule_active"],)))
 
-    # lexicographic ordering on the (family, 4 segment bools, offset) tuple,
-    # same skillgroup scoping as above -- otherwise interchangeable templates
-    # within a skillgroup are free to permute which one picked which shape,
-    # multiplying the search space for no reason. same radix-encoding trick
-    # as before, just rebuilding the old 0-15 "derivation" digit from the 4
-    # bools (seg1 as the most-significant bit, matching the original
-    # itertools.product bit order) instead of reading it directly: family is
-    # the most-significant digit (base 16*7=112), the 4-bit segment value
-    # next (base 7, covering offset's raw range 0-6), offset least
+    # lexicographic ordering on the (combo_id, 4 skill-segment bools, offset)
+    # tuple, same skillgroup scoping as above -- otherwise interchangeable
+    # templates within a skillgroup are free to permute which one picked
+    # which shape, multiplying the search space for no reason. combo_id
+    # alone stands in for (shift_family_var, seg*_extended_var) here --
+    # allowed_combos already ties them together bijectively for the 10 real
+    # positions, so ordering combo_id orders the underlying geometry too,
+    # without needing to build a wider radix over the geometry bools
+    # directly. Same radix-encoding trick as before for the rest: combo_id
+    # is the most-significant digit (base 16*4=64), the 4-bit skill-segment
+    # value next (base 4, covering offset's range 0-3), offset least
     # significant.
     (schedules
-        .with_columns(pl.col("shift_family_var").shift(1).over(["primary_skill", "secondary_skill"])
-                        .alias("shift_family_var_prev"),
+        .with_columns(pl.col("combo_id_var").shift(1).over(["primary_skill", "secondary_skill"])
+                        .alias("combo_id_var_prev"),
                       pl.col("seg1_is_secondary_var").shift(1).over(["primary_skill", "secondary_skill"])
                         .alias("seg1_is_secondary_var_prev"),
                       pl.col("seg2_is_secondary_var").shift(1).over(["primary_skill", "secondary_skill"])
@@ -144,15 +191,15 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
                         .alias("seg4_is_secondary_var_prev"),
                       pl.col("shift_start_offset_var").shift(1).over(["primary_skill", "secondary_skill"])
                         .alias("shift_start_offset_var_prev"))
-        .filter(pl.col("shift_family_var_prev").is_not_null())
+        .filter(pl.col("combo_id_var_prev").is_not_null())
         .pipe(problem.add, lambda row: (
-            (row["shift_family_var_prev"] * 112 +
+            (row["combo_id_var_prev"] * 64 +
              (row["seg1_is_secondary_var_prev"] * 8 + row["seg2_is_secondary_var_prev"] * 4 +
-              row["seg3_is_secondary_var_prev"] * 2 + row["seg4_is_secondary_var_prev"]) * 7 +
+              row["seg3_is_secondary_var_prev"] * 2 + row["seg4_is_secondary_var_prev"]) * 4 +
              row["shift_start_offset_var_prev"]) <=
-            (row["shift_family_var"] * 112 +
+            (row["combo_id_var"] * 64 +
              (row["seg1_is_secondary_var"] * 8 + row["seg2_is_secondary_var"] * 4 +
-              row["seg3_is_secondary_var"] * 2 + row["seg4_is_secondary_var"]) * 7 +
+              row["seg3_is_secondary_var"] * 2 + row["seg4_is_secondary_var"]) * 4 +
              row["shift_start_offset_var"]),)))
 
     # single-skill schedules have no secondary to switch to -- a segment
@@ -208,19 +255,20 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
     _t("workweek patterns applied")
 
     # ==================== schedule_day_slot: skill-independent geometry ====================
-    # raw_state_var (0/1/2, work/break amount) and is_secondary_var (which
-    # skill this slot's segment serves) never depend on which skill an
-    # interval is asking about -- only on family/offset/segment-assignment,
-    # all schedule-level facts. Computing them here, once per
+    # raw_state_var (0/1/2/3/4, work/break amount) and is_secondary_var
+    # (which skill this slot's segment serves) never depend on which skill
+    # an interval is asking about -- only on family/combo/offset/segment-
+    # assignment, all schedule-level facts. Computing them here, once per
     # (schedule, day, slot), instead of once per (schedule, day, slot, skill)
     # halves the expensive lookups for every dual-skill schedule, on top of
-    # each lookup now hitting a 174-entry array instead of the old
-    # 2,784-entry one.
-    # 16..38 inclusive -- same window as the intervals filter above.
-    slots_in_scope = list(range(EARLIEST_START_TIME_SLOT, EARLIEST_START_TIME_SLOT + WORKDAY_LENGTH - PAD))
+    # work_state_array now only being 60 entries (4 core families), with
+    # block_id_array's 150-entry lookup (10 real combos) unchanged from the
+    # flat-family version -- see shift_patterns.py and allowed_combos above.
+    # slots_in_scope (hour units) computed above, shared with the intervals
+    # aggregation.
     schedule_day_slot = (schedules_x_days
         .join(pl.DataFrame({"slot": slots_in_scope}), how="cross")
-        .pipe(problem.new_int_var, "raw_state_var", lb=0, ub=2)
+        .pipe(problem.new_int_var, "raw_state_var", lb=0, ub=4)
         .pipe(problem.new_int_var, "block_id_var", lb=0, ub=NUM_BLOCKS)
         .pipe(problem.new_bool_var, "is_secondary_var"))
     _t("schedule_day_slot vars created")
@@ -231,8 +279,8 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
               lambda row: row["schedule_day_active_var"].Not())
         .pipe(problem.add_conditional, "add_element",
               # flat_index = family*WORKDAY_LENGTH + (slot - offset - EARLIEST_START_TIME_SLOT + PAD)
-              # -- same index formula as before, just against a 174-entry
-              # skill-independent array instead of a 2,784-entry sliced one.
+              # -- shift_family_var (0-3) against the 60-entry work_state_array;
+              # combo_id_var drives the separate 150-entry block_id_array below.
               lambda row: ((row["shift_family_var"] * WORKDAY_LENGTH +
                            row["slot"] - row["shift_start_offset_var"] -
                            EARLIEST_START_TIME_SLOT + PAD),
@@ -240,7 +288,11 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
                            row["raw_state_var"],),
               lambda row: row["schedule_day_active_var"])
         .pipe(problem.add_conditional, "add_element",
-              lambda row: ((row["shift_family_var"] * WORKDAY_LENGTH +
+              # combo_id_var, not shift_family_var -- block_id_array is keyed
+              # by the full 10-combo resolution (see shift_patterns.py),
+              # while shift_family_var only carries the 4-way work_state
+              # shape above.
+              lambda row: ((row["combo_id_var"] * WORKDAY_LENGTH +
                            row["slot"] - row["shift_start_offset_var"] -
                            EARLIEST_START_TIME_SLOT + PAD),
                            block_id_array,
