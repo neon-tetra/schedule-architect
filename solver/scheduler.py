@@ -21,6 +21,7 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
     model = cp_model.CpModel()
     problem = Problem(model)
     SCALED_UB = 50
+    AGENT_UPPER_BOUND = 25  # generous per-template cap; the per-skillgroup sum constraint enforces the real total
 
     problem.diagnostic_mode = False
 
@@ -41,6 +42,7 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         .with_row_index(name="schedule_id")
         .select("primary_skill", "secondary_skill", "skillgroup_agent_count", "schedule_id")
         .pipe(problem.new_bool_var, "schedule_active")
+        .pipe(problem.new_int_var, "schedule_agent_count_var", lb=0, ub=AGENT_UPPER_BOUND)
         .pipe(problem.new_int_var, "shift_family_var", lb=0, ub=5)
         .pipe(problem.new_int_var, "shift_derivation_var", lb=0, ub=15)
         .pipe(problem.new_int_var_from_domain, "shift_start_offset_var", domain=shift_start_domain))
@@ -50,6 +52,24 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         .with_columns(pl.col("schedule_active").shift(1).alias("schedule_active_prev"))
         .filter(pl.col("schedule_active_prev").is_not_null())
         .pipe(problem.add, lambda row: (row["schedule_active_prev"] >= row["schedule_active"],)))
+
+    # each template's agent count sums to its skillgroup's real headcount --
+    # pooling made this necessary: skillgroup_agent_count is the group total,
+    # not a per-template value, so something has to divide it back up.
+    (schedules
+        .group_by(["primary_skill", "secondary_skill"])
+        .agg(pl.col("schedule_agent_count_var").alias("agent_count_list"),
+             pl.col("skillgroup_agent_count").first())
+        .pipe(problem.add, lambda row: (sum(row["agent_count_list"]) == row["skillgroup_agent_count"],)))
+
+    # bidirectional: 0 agents means inactive, inactive means 0 agents.
+    (schedules
+        .pipe(problem.add_conditional, "add",
+              lambda row: (row["schedule_agent_count_var"] == 0,),
+              lambda row: row["schedule_active"].Not())
+        .pipe(problem.add_conditional, "add",
+              lambda row: (row["schedule_agent_count_var"] >= 1,),
+              lambda row: row["schedule_active"]))
     
     schedules_x_days = (schedules
         .join(pl.DataFrame({"day": list(range(7))}), how="cross")
