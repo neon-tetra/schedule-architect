@@ -142,12 +142,12 @@ DF_QUEUE_PROFILES = (pl.DataFrame([
 
 
 DF_STARTING_ROSTER = pl.DataFrame([
-   # {"primary_skill": "account_services", "secondary_skill": "floral",      "count": 3},
-   # {"primary_skill": "account_services", "secondary_skill": "bakery",      "count": 5},
-   # {"primary_skill": "account_services", "secondary_skill": "escalations", "count": 5},
-   # {"primary_skill": "account_services", "secondary_skill": None,          "count": 16},
+    {"primary_skill": "account_services", "secondary_skill": "floral",      "count": 3},
+    {"primary_skill": "account_services", "secondary_skill": "bakery",      "count": 5},
+    {"primary_skill": "account_services", "secondary_skill": "escalations", "count": 5},
+    {"primary_skill": "account_services", "secondary_skill": None,          "count": 16},
     {"primary_skill": "online_orders",    "secondary_skill": "photo",       "count": 7},
-   # {"primary_skill": "online_orders",    "secondary_skill": "bakery",      "count": 1},
-   # {"primary_skill": "online_orders",    "secondary_skill": "escalations", "count": 2},
-   # {"primary_skill": "online_orders",    "secondary_skill": None,          "count": 13},
+    {"primary_skill": "online_orders",    "secondary_skill": "bakery",      "count": 1},
+    {"primary_skill": "online_orders",    "secondary_skill": "escalations", "count": 2},
+    {"primary_skill": "online_orders",    "secondary_skill": None,          "count": 13},
 ])
