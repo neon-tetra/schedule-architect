@@ -84,12 +84,13 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         .join(schedules_x_days.lazy(), on="day")
         .filter((pl.col("skill") == pl.col("primary_skill")) | (pl.col("skill") == pl.col("secondary_skill")))
         .collect()
-        .pipe(problem.new_int_var, "schedule_interval_contribution_val", lb=0, ub=SCALED_UB))
-    
+        .pipe(problem.new_int_var, "schedule_interval_contribution_raw_val", lb=0, ub=SCALED_UB)
+        .pipe(problem.new_int_var, "schedule_interval_contribution_weighted_val", lb=0, ub=SCALED_UB))
     (intervals_x_schedules
         .pipe(problem.add_conditional, "add", 
-              lambda row: (row["schedule_interval_contribution_val"] == 0,),
+              lambda row: (row["schedule_interval_contribution_raw_val"] == 0,),
               lambda row: (row["schedule_day_active_var"].Not(),))
+
         #if skill = online_orders or account_services then = else 1
         .with_columns(pl.when(pl.col("skill") == pl.col("primary_skill"))
                         .then(0)
@@ -108,20 +109,23 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
                            row["slot"] - row["shift_start_offset_var"] -
                            EARLIEST_START_TIME_SLOT + PAD),
                            flattened_pattern_values,
-                           row["schedule_interval_contribution_val"],),
-                lambda row: row["schedule_day_active_var"]))
+                           row["schedule_interval_contribution_raw_val"],),
+                lambda row: row["schedule_day_active_var"])
+        .pipe(problem.add_multiplication_equality, 
+              lambda row: (row["schedule_interval_contribution_weighted_val"],
+                           row["schedule_interval_contribution_raw_val"],
+                           row["schedule_agent_count_var"],)))
 
     intervals_supply = (intervals_x_schedules
         .group_by(["skill", "day", "slot", "demand"])
-        .agg(pl.col("schedule_interval_contribution_val")
+        .agg(pl.col("schedule_interval_contribution_weighted_val")
                .alias("schedule_interval_contribution_list"))
         .pipe(problem.new_int_var, "supply_val", lb=0, ub=SCALED_UB)
-        .pipe(problem.add, 
-              lambda row: (row["supply_val"] == 
-                           sum(row["schedule_interval_contribution_list"]),),)
+        .pipe(problem.add, lambda row: (row["supply_val"] == 
+                                    sum(row["schedule_interval_contribution_list"]),),)
         .pipe(problem.new_int_var, "shortfall_val", lb=0, ub=SCALED_UB)
         .pipe(problem.add_max_equality, lambda row: (row["shortfall_val"], 
-                                                    row["demand"] - row["supply_val"], 
+                                                     row["demand"] - row["supply_val"], 
                                                      0),))
     
     shortfall_vars = [problem.store.get(v) for v in intervals_supply["shortfall_val"]]
