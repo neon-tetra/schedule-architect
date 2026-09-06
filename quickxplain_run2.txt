@@ -1,0 +1,480 @@
+
+Starting CP-SAT solver v9.15.6755
+Parameters: max_time_in_seconds: 60 log_search_progress: true cp_model_presolve: false num_search_workers: 1
+Forcing sequential search as assumptions are not supported in multi-thread.
+Forcing presolve to keep all feasible solutions in the presence of assumptions.
+
+Initial satisfaction model '': (model_fingerprint: 0xd71f195eb8ee2d0)
+#Variables: 34'408 (34'408 primary variables)
+  - 22'216 Booleans in [0,1]
+  - 48 in [0,3]
+  - 4'032 in [0,4]
+  - 68 in [0,6]
+  - 12 in [0,8]
+  - 24 in [0,9]
+  - 8 in [0,10]
+  - 476 in [0,12]
+  - 56 in [0,14]
+  - 112 in [0,16]
+  - 32 in [0,18]
+  - 38 in [0,20]
+  - 38 in [0,24]
+  - 24 in [0,25]
+  - 2 in [0,26]
+  - 26 in [0,28]
+  - 24 in [0,30]
+  - 22 in [0,32]
+  - 14 in [0,34]
+  - 20 in [0,36]
+  - 14 in [0,38]
+  - 8 in [0,40]
+  - 4 in [0,42]
+  - 4 in [0,44]
+  - 8 in [0,48]
+  - 2 in [0,50]
+  - 6 in [0,52]
+  - 4 in [0,54]
+  - 4 in [0,56]
+  - 4 in [0,62]
+  - 2 in [0,72]
+  - 7'056 in [0,100]
+#kElement: 6'048 (#enforced: 6'048 #multi: 4'032)
+#kIntProd: 3'528 (#enforced: 3'528)
+#kLinMax: 504 (#enforced: 504) (#expressions: 1'008)
+#kLinear1: 5'616 (#enforced: 5'616 #multi: 5'592)
+#kLinear2: 3'544 (#enforced: 3'544 #multi: 3'528)
+#kLinear3: 8 (#enforced: 8)
+#kLinearN: 520 (#enforced: 520) (#terms: 4'224)
+#kTable: 48 (#enforced: 48)
+
+Starting presolve at 0.16s
+
+Presolve summary:
+  - 0 affine relations were detected.
+  - rule 'element: expanded' was applied 2'016 times.
+  - rule 'element: expanded value element' was applied 4'032 times.
+  - rule 'new_bool: integer encoding' was applied 17'640 times.
+  - rule 'new_bool: table expansion' was applied 408 times.
+  - rule 'table: expanded positive constraint' was applied 48 times.
+  - rule 'variables: add encoding constraint' was applied 17'640 times.
+
+Presolved satisfaction model '': (model_fingerprint: 0xc885a450fb5cbb92)
+#Variables: 52'504 (52'408 primary variables)
+  - 40'264 Booleans in [0,1]
+  - 24 in [-3,0][12,15][27,30][42,45]
+  - 24 in [-3,0][12,15][27,30][42,45][57,60][72,75][87,90][102,105][117,120][132,135]
+  - 48 in [0,3]
+  - 4'032 in [0,4]
+  - 68 in [0,6]
+  - 12 in [0,8]
+  - 24 in [0,9]
+  - 8 in [0,10]
+  - 476 in [0,12]
+  - 56 in [0,14]
+  - 112 in [0,16]
+  - 32 in [0,18]
+  - 38 in [0,20]
+  - 38 in [0,24]
+  - 24 in [0,25]
+  - 2 in [0,26]
+  - 26 in [0,28]
+  - 24 in [0,30]
+  - 22 in [0,32]
+  - 14 in [0,34]
+  - 20 in [0,36]
+  - 14 in [0,38]
+  - 8 in [0,40]
+  - 4 in [0,42]
+  - 4 in [0,44]
+  - 8 in [0,48]
+  - 2 in [0,50]
+  - 6 in [0,52]
+  - 4 in [0,54]
+  - 4 in [0,56]
+  - 4 in [0,62]
+  - 2 in [0,72]
+  - 7'056 in [0,100]
+#kBoolAnd: 2'616 (#enforced: 2'616) (#literals: 5'232)
+#kBoolAndClauses: 2'016 (#enforced: 2'016 #multi: 2'016) (#literals: 6'048)
+#kBoolOr: 864 (#literals: 4'344)
+#kEmpty: 6'096
+#kExactlyOne: 48 (#literals: 456)
+#kIntProd: 3'528 (#enforced: 3'528)
+#kLinMax: 504 (#enforced: 504) (#expressions: 1'008)
+#kLinear1: 46'944 (#enforced: 46'944 #multi: 9'624)
+#kLinear2: 11'776 (#enforced: 11'776 #multi: 11'760)
+#kLinear3: 560 (#enforced: 512 #multi: 504)
+#kLinearN: 10'768 (#enforced: 10'768 #multi: 10'248) (#terms: 126'192)
+
+Preloading model.
+
+Starting search at 0.48s with 1 workers.
+1 full problem subsolver: [main]
+
+[Encoding] 7080 literals associated to VAR >= value, and 24 half-associations.
+[Encoding] 17640 literals associated to VAR == value, and 0 half-associations.
+[Encoding] num_fully_encoded_variables:2136
+[Encoding] num_partially_encoded_variables:2016
+[Precedences] num_relations=3592 num_clauses=62776
+[Precedences] Added 5736 GreaterThanAtLeastOneOf() constraints.
+[Probing] deterministic_time: 0.0868531 (limit: 1) wall_time: 0.218107 (53608/53608)
+[Probing]  - new binary clause: 13'248
+[EncodingLinearRelaxation] #tight_equality:216 #loose_equality:7728 #inequality:7680
+[LinearRelaxationBeforeCliqueExpansion] #linear:23400 #at_most_ones:5520
+[FinalLinearRelaxation] #linear:19272 #cut_generators:0
+Initial num_bool: 53608
+
+Starting subsolver 'main' hint search at 1.26s
+Starting subsolver 'main' search at 1.26s
+#Done   26.37s main
+
+Task timing           n [     min,      max]      avg      dev     time         n [     min,      max]      avg      dev    dtime
+      'main':         1 [  26.58s,   26.58s]   26.58s   0.00ns   26.58s         1 [976.94ms, 976.94ms] 976.94ms   0.00ns 976.94ms
+
+Search stats     Bools  Conflicts  Branches  Restarts  BacktrackToRoot  Backtrack  BoolPropag  IntegerPropag
+       'main':  53'611        841   162'693         8          107'227    108'190   2'423'799      2'227'127
+
+SAT formula    Fixed  Equiv   Total  VarLeft  BinaryClauses  PermanentClauses  TemporaryClauses
+      'main':      0    288  53'611   53'323         78'390            47'031               107
+
+SAT stats    ClassicMinim  LitRemoved  LitRemovedBinary  LitLearned  LitForgotten  Subsumed
+    'main':            80         353               170      11'406             0        12
+
+Vivification    Clauses  Decisions  LitTrue  Subsumed  LitRemoved  DecisionReused  Conflicts
+       'main':        0          0        0         0           0               0          0
+
+Clause deletion    at_true  l_and_not(l)  to_binary  sub_conflict  sub_extra  sub_decisions  sub_eager  sub_vivify  sub_probing  sub_inpro  blocked  eliminated  forgotten  promoted  conflicts
+          'main':        0             0          0            10          2              0          2           0            0     16'465        0           0          0       220        841
+
+Lp stats    Component  Iterations  AddedCuts  OPTIMAL  DUAL_F.  DUAL_U.
+   'main':      4'056       8'472      3'653  252'365        0        4
+
+Lp dimension    Final dimension of first component
+       'main':     9 rows, 61 columns, 160 entries
+
+Lp debug    CutPropag  CutEqPropag  Adjust  Overflow    Bad  BadScaling
+   'main':          0           45       4         0  3'024           0
+
+Lp pool    Constraints  Updates  Simplif  Merged  Shortened  Split  Strengthened    Cuts/Call
+  'main':       22'373      195        0      48          0      0         1'613  3'653/5'121
+
+Lp Cut             main
+          CG_FF:    271
+           CG_K:    228
+          CG_KL:     77
+           CG_R:    356
+          CG_RB:    298
+         CG_RBP:    203
+             IB:  1'089
+       MIR_1_FF:    103
+        MIR_1_K:     55
+       MIR_1_KL:     14
+        MIR_1_R:      4
+       MIR_1_RB:     80
+      MIR_1_RBP:     18
+       MIR_2_FF:     90
+        MIR_2_K:     77
+       MIR_2_KL:     28
+        MIR_2_R:     62
+       MIR_2_RB:     58
+      MIR_2_RBP:     31
+       MIR_3_FF:     45
+        MIR_3_K:     31
+       MIR_3_KL:     19
+        MIR_3_R:     51
+       MIR_3_RB:     37
+      MIR_3_RBP:     22
+       MIR_4_FF:     16
+        MIR_4_K:      6
+       MIR_4_KL:      5
+        MIR_4_R:     14
+       MIR_4_RB:      9
+      MIR_4_RBP:      8
+       MIR_5_FF:      6
+        MIR_5_K:      1
+       MIR_5_KL:      3
+        MIR_5_R:      4
+       MIR_5_RB:      4
+      MIR_5_RBP:      2
+       MIR_6_FF:      1
+        MIR_6_K:      2
+       MIR_6_KL:      1
+        MIR_6_R:      3
+       MIR_6_RB:      3
+      MIR_6_RBP:      1
+   ZERO_HALF_FF:     36
+    ZERO_HALF_K:     32
+   ZERO_HALF_KL:     16
+    ZERO_HALF_R:     68
+   ZERO_HALF_RB:     44
+  ZERO_HALF_RBP:     21
+
+Solution repositories    Added  Queried  Synchro
+    'alternative_path':      0        0        0
+      'best_solutions':      0        0        0
+   'fj solution hints':      0        0        0
+
+LRAT_status: NA
+CpSolverResponse summary:
+status: INFEASIBLE
+objective: NA
+best_bound: NA
+integers: 26640
+booleans: 53611
+conflicts: 841
+branches: 162693
+propagations: 2423799
+integer_propagations: 2227127
+restarts: 8
+lp_iterations: 8472
+walltime: 27.1377
+usertime: 27.1377
+deterministic_time: 0.976942
+gap_integral: 0
+
+[timer] intervals filtered: 0.077s (total 0.077s)
+[timer] schedules vars created: 0.172s (total 0.249s)
+[timer] schedule-level constraints applied: 0.310s (total 0.558s)
+[timer] workweek patterns applied: 0.037s (total 0.596s)
+[timer] schedule_day_slot vars created: 0.214s (total 0.809s)
+[timer] schedule_day_slot constraints applied: 0.661s (total 1.471s)
+[timer] intervals_x_schedules built (join + vars): 0.322s (total 1.793s)
+[timer] contribution constraints applied (skill-split add + multiplication): 0.569s (total 2.362s)
+[timer] supply/shortfall constraints applied: 0.061s (total 2.423s)
+[timer] frames captured (problem.to_frames): 0.418s (total 2.841s)
+[cardinality_hierarchy] ambiguous n:1 parent for 'schedule_id': ['secondary_skill', 'skillgroup_agent_count', 'primary_skill'] -> picked 'skillgroup_agent_count' (most distinct values)
+[cardinality_hierarchy] ambiguous n:1 parent for 'schedule_id': ['secondary_skill', 'primary_skill', 'skillgroup_agent_count'] -> picked 'skillgroup_agent_count' (most distinct values)
+[timer] model_view built (html + json): 0.799s (total 3.641s)
+[timer] PYTHON TOTAL before solver.solve(): 0.000s (total 3.641s)
+Solver status: INFEASIBLE
+=== infeasibility core: 126 constraints in 13 groups ===
+  add_allowed_assignments @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id')  ×3
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 14}]
+  add @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id')  ×2
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_active_prev')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 14}]
+  add @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id')  ×2
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'combo_id_var_prev', 'seg1_is_secondary_var_prev', 'seg2_is_secondary_var_prev', 'seg3_is_secondary_var_prev', 'seg4_is_secondary_var_prev', 'shift_start_offset_var_prev')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 14}]
+  add @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id')  ×12
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 14}] ...
+  add @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count')  ×1
+      entities=('agent_count_list',)
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13}]
+  add_conditional @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id')  ×4
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 14}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12}] ...
+  add_allowed_assignments @ ('schedule_id',)  ×3
+      entities=('schedule_day_active_list',)
+      e.g. rows: [{'schedule_id': 12}, {'schedule_id': 13}, {'schedule_id': 14}]
+  add_conditional @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id', 'day', 'slot')  ×8
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'block_id_var', 'is_secondary_var')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 1, 'slot': 16}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 6, 'slot': 15}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13, 'day': 1, 'slot': 16}] ...
+  add_element_conditional @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id', 'day', 'slot')  ×28
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'block_id_var', 'is_secondary_var')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 1, 'slot': 15}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 1, 'slot': 16}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 3, 'slot': 11}] ...
+  add_element @ ('primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id', 'day', 'slot')  ×18
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'block_id_var', 'is_secondary_var')
+      e.g. rows: [{'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 1, 'slot': 15}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 1, 'slot': 16}, {'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'day': 6, 'slot': 15}] ...
+  add_conditional @ ('skill', 'day', 'slot', 'demand', 'primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id', 'skill_offset_flag')  ×18
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'is_secondary_var', 'schedule_interval_contribution_raw_val', 'schedule_interval_contribution_weighted_val')
+      e.g. rows: [{'skill': 'online_orders', 'day': 4, 'slot': 15, 'demand': 18, 'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13, 'skill_offset_flag': 0}, {'skill': 'online_orders', 'day': 4, 'slot': 15, 'demand': 18, 'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 14, 'skill_offset_flag': 0}, {'skill': 'online_orders', 'day': 1, 'slot': 15, 'demand': 18, 'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'skill_offset_flag': 0}] ...
+  add_multiplication_equality @ ('skill', 'day', 'slot', 'demand', 'primary_skill', 'secondary_skill', 'skillgroup_agent_count', 'schedule_id', 'skill_offset_flag')  ×18
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'is_secondary_var', 'schedule_interval_contribution_raw_val', 'schedule_interval_contribution_weighted_val')
+      e.g. rows: [{'skill': 'online_orders', 'day': 4, 'slot': 15, 'demand': 18, 'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 13, 'skill_offset_flag': 0}, {'skill': 'online_orders', 'day': 4, 'slot': 15, 'demand': 18, 'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 14, 'skill_offset_flag': 0}, {'skill': 'online_orders', 'day': 1, 'slot': 15, 'demand': 18, 'primary_skill': 'online_orders', 'secondary_skill': None, 'skillgroup_agent_count': 13, 'schedule_id': 12, 'skill_offset_flag': 0}] ...
+  add @ ('skill', 'day', 'slot', 'demand')  ×9
+      entities=('schedule_interval_contribution_list', 'supply_val')
+      e.g. rows: [{'skill': 'online_orders', 'day': 1, 'slot': 16, 'demand': 18}, {'skill': 'online_orders', 'day': 6, 'slot': 15, 'demand': 12}, {'skill': 'online_orders', 'day': 6, 'slot': 16, 'demand': 12}] ...
+[timer] explain() printed, starting quickxplain: 27.294s (total 30.935s)
+[   0.03s] grouped into 20 groups:
+[   0.03s]     add_allowed_assignments@grain_0#call_0  ×24
+[   0.03s]     add@grain_0#call_1  ×16
+[   0.03s]     add@grain_0#call_2  ×16
+[   0.03s]     add@grain_0#call_3  ×6
+[   0.03s]     add@grain_0#call_4  ×6
+[   0.03s]     add@grain_0#call_5  ×6
+[   0.03s]     add@grain_0#call_6  ×6
+[   0.03s]     add@grain_1#call_7  ×8
+[   0.03s]     add_conditional@grain_0#call_8  ×24
+[   0.03s]     add_conditional@grain_0#call_9  ×24
+[   0.03s]     add_allowed_assignments@grain_3#call_10  ×24
+[   0.03s]     add_conditional@grain_4#call_11  ×2016
+[   0.03s]     add_element_conditional@grain_4#call_12  ×2016
+[   0.03s]     add_element_conditional@grain_4#call_13  ×2016
+[   0.03s]     add_element@grain_4#call_14  ×2016
+[   0.03s]     add_conditional@grain_5#call_15  ×3528
+[   0.03s]     add_conditional@grain_5#call_16  ×3528
+[   0.03s]     add_multiplication_equality@grain_5#call_17  ×3528
+[   0.03s]     add@grain_6#call_18  ×504
+[   0.03s]     add_max_equality@grain_6#call_19  ×504
+[   0.03s] SANITY: re-solving FULL assumption set (should be INFEASIBLE)...
+[   0.03s]   oracle#1 START  FULL-SET  (20 groups, 19816 lits) -> solving...
+[  26.61s]   oracle#1 DONE   FULL-SET  status=INFEASIBLE  infeasible=True  (26.51s, clear=yes)
+[  26.61s] sanity passed. Beginning minimization.
+[  26.61s] QX depth=0  candidates=20 ['add_allowed_assignments@grain_0#call_0', 'add@grain_0#call_1', 'add@grain_0#call_2', 'add@grain_0#call_3', 'add@grain_0#call_4', 'add@grain_0#call_5', 'add@grain_0#call_6', 'add@grain_1#call_7', 'add_conditional@grain_0#call_8', 'add_conditional@grain_0#call_9', 'add_allowed_assignments@grain_3#call_10', 'add_conditional@grain_4#call_11', 'add_element_conditional@grain_4#call_12', 'add_element_conditional@grain_4#call_13', 'add_element@grain_4#call_14', 'add_conditional@grain_5#call_15', 'add_conditional@grain_5#call_16', 'add_multiplication_equality@grain_5#call_17', 'add@grain_6#call_18', 'add_max_equality@grain_6#call_19']  [bg:0]
+[  26.61s]   oracle#2 START  bg+c1  (10 groups, 136 lits) -> solving...
+[  36.14s]   oracle#2 DONE   bg+c1  status=OPTIMAL  infeasible=False  (9.52s, clear=yes)
+[  36.14s]   oracle#3 START  bg+c2  (10 groups, 19680 lits) -> solving...
+[ 126.29s]   oracle#3 DONE   bg+c2  status=UNKNOWN  infeasible=False  (90.08s, clear=yes)
+[ 126.30s]   neither half suffices -> both contribute, pairwise recurse
+[ 126.31s]   QX depth=1  candidates=10 ['add_allowed_assignments@grain_0#call_0', 'add@grain_0#call_1', 'add@grain_0#call_2', 'add@grain_0#call_3', 'add@grain_0#call_4', 'add@grain_0#call_5', 'add@grain_0#call_6', 'add@grain_1#call_7', 'add_conditional@grain_0#call_8', 'add_conditional@grain_0#call_9']  [bg:10]
+[ 126.31s]   oracle#4 START    bg+c1  (15 groups, 19748 lits) -> solving...
+[ 216.46s]   oracle#4 DONE     bg+c1  status=UNKNOWN  infeasible=False  (90.08s, clear=yes)
+[ 216.46s]   oracle#5 START    bg+c2  (15 groups, 19748 lits) -> solving...
+[ 259.32s]   oracle#5 DONE     bg+c2  status=INFEASIBLE  infeasible=True  (42.78s, clear=yes)
+[ 259.33s]     c2 alone suffices, dropping c1 (5 groups)
+[ 259.33s]     QX depth=2  candidates=5 ['add@grain_0#call_5', 'add@grain_0#call_6', 'add@grain_1#call_7', 'add_conditional@grain_0#call_8', 'add_conditional@grain_0#call_9']  [bg:10]
+[ 259.33s]   oracle#6 START      bg+c1  (12 groups, 19692 lits) -> solving...
+[ 349.49s]   oracle#6 DONE       bg+c1  status=UNKNOWN  infeasible=False  (90.08s, clear=yes)
+[ 349.49s]   oracle#7 START      bg+c2  (13 groups, 19736 lits) -> solving...
+[ 439.65s]   oracle#7 DONE       bg+c2  status=UNKNOWN  infeasible=False  (90.09s, clear=yes)
+[ 439.65s]       neither half suffices -> both contribute, pairwise recurse
+[ 439.65s]       QX depth=3  candidates=2 ['add@grain_0#call_5', 'add@grain_0#call_6']  [bg:13]
+[ 439.66s]   oracle#8 START        bg+c1  (14 groups, 19742 lits) -> solving...
+[ 529.87s]   oracle#8 DONE         bg+c1  status=UNKNOWN  infeasible=False  (90.13s, clear=yes)
+[ 529.88s]   oracle#9 START        bg+c2  (14 groups, 19742 lits) -> solving...
+[ 561.83s]   oracle#9 DONE         bg+c2  status=INFEASIBLE  infeasible=True  (31.87s, clear=yes)
+[ 561.83s]         c2 alone suffices, dropping c1 (1 groups)
+[ 561.83s]         QX depth=4  candidates=1 ['add@grain_0#call_6']  [bg:13]
+[ 561.83s]           -> single candidate, ESSENTIAL: add@grain_0#call_6
+[ 561.83s]       QX depth=3  candidates=3 ['add@grain_1#call_7', 'add_conditional@grain_0#call_8', 'add_conditional@grain_0#call_9']  [bg:11]
+[ 561.83s]   oracle#10 START        bg+c1  (12 groups, 19694 lits) -> solving...
+[ 651.99s]   oracle#10 DONE         bg+c1  status=INFEASIBLE  infeasible=True  (90.08s, clear=yes)
+[ 651.99s]         c1 alone suffices, dropping c2 (2 groups)
+[ 651.99s]         QX depth=4  candidates=1 ['add@grain_1#call_7']  [bg:11]
+[ 651.99s]           -> single candidate, ESSENTIAL: add@grain_1#call_7
+[ 651.99s]   QX depth=1  candidates=10 ['add_allowed_assignments@grain_3#call_10', 'add_conditional@grain_4#call_11', 'add_element_conditional@grain_4#call_12', 'add_element_conditional@grain_4#call_13', 'add_element@grain_4#call_14', 'add_conditional@grain_5#call_15', 'add_conditional@grain_5#call_16', 'add_multiplication_equality@grain_5#call_17', 'add@grain_6#call_18', 'add_max_equality@grain_6#call_19']  [bg:2]
+[ 651.99s]   oracle#11 START    bg+c1  (7 groups, 8102 lits) -> solving...
+[ 742.32s]   oracle#11 DONE     bg+c1  status=UNKNOWN  infeasible=False  (90.29s, clear=yes)
+[ 742.33s]   oracle#12 START    bg+c2  (7 groups, 11606 lits) -> solving...
+[ 832.48s]   oracle#12 DONE     bg+c2  status=UNKNOWN  infeasible=False  (90.10s, clear=yes)
+[ 832.49s]     neither half suffices -> both contribute, pairwise recurse
+[ 832.49s]     QX depth=2  candidates=5 ['add_allowed_assignments@grain_3#call_10', 'add_conditional@grain_4#call_11', 'add_element_conditional@grain_4#call_12', 'add_element_conditional@grain_4#call_13', 'add_element@grain_4#call_14']  [bg:7]
+[ 832.49s]   oracle#13 START      bg+c1  (9 groups, 13646 lits) -> solving...
+[ 922.67s]   oracle#13 DONE       bg+c1  status=UNKNOWN  infeasible=False  (90.11s, clear=yes)
+[ 922.67s]   oracle#14 START      bg+c2  (10 groups, 17654 lits) -> solving...
+[1012.93s]   oracle#14 DONE       bg+c2  status=UNKNOWN  infeasible=False  (90.19s, clear=yes)
+[1012.94s]       neither half suffices -> both contribute, pairwise recurse
+[1012.94s]       QX depth=3  candidates=2 ['add_allowed_assignments@grain_3#call_10', 'add_conditional@grain_4#call_11']  [bg:10]
+[1012.94s]   oracle#15 START        bg+c1  (11 groups, 17678 lits) -> solving...
+[1103.22s]   oracle#15 DONE         bg+c1  status=UNKNOWN  infeasible=False  (90.19s, clear=yes)
+[1103.23s]   oracle#16 START        bg+c2  (11 groups, 19670 lits) -> solving...
+[1193.66s]   oracle#16 DONE         bg+c2  status=UNKNOWN  infeasible=False  (90.33s, clear=yes)
+[1193.67s]         neither half suffices -> both contribute, pairwise recurse
+[1193.67s]         QX depth=4  candidates=1 ['add_allowed_assignments@grain_3#call_10']  [bg:11]
+[1193.67s]           -> single candidate, ESSENTIAL: add_allowed_assignments@grain_3#call_10
+[1193.67s]         QX depth=4  candidates=1 ['add_conditional@grain_4#call_11']  [bg:11]
+[1193.67s]           -> single candidate, ESSENTIAL: add_conditional@grain_4#call_11
+[1193.67s]       QX depth=3  candidates=3 ['add_element_conditional@grain_4#call_12', 'add_element_conditional@grain_4#call_13', 'add_element@grain_4#call_14']  [bg:9]
+[1193.68s]   oracle#17 START        bg+c1  (10 groups, 15662 lits) -> solving...
+[1283.99s]   oracle#17 DONE         bg+c1  status=UNKNOWN  infeasible=False  (90.20s, clear=yes)
+[1284.00s]   oracle#18 START        bg+c2  (11 groups, 17678 lits) -> solving...
+[1374.24s]   oracle#18 DONE         bg+c2  status=UNKNOWN  infeasible=False  (90.17s, clear=yes)
+[1374.25s]         neither half suffices -> both contribute, pairwise recurse
+[1374.26s]         QX depth=4  candidates=1 ['add_element_conditional@grain_4#call_12']  [bg:11]
+[1374.26s]           -> single candidate, ESSENTIAL: add_element_conditional@grain_4#call_12
+[1374.26s]         QX depth=4  candidates=2 ['add_element_conditional@grain_4#call_13', 'add_element@grain_4#call_14']  [bg:10]
+[1374.26s]   oracle#19 START          bg+c1  (11 groups, 17678 lits) -> solving...
+[1464.59s]   oracle#19 DONE           bg+c1  status=UNKNOWN  infeasible=False  (90.24s, clear=yes)
+[1464.60s]   oracle#20 START          bg+c2  (11 groups, 17678 lits) -> solving...
+[1555.18s]   oracle#20 DONE           bg+c2  status=UNKNOWN  infeasible=False  (90.44s, clear=yes)
+[1555.21s]           neither half suffices -> both contribute, pairwise recurse
+[1555.21s]           QX depth=5  candidates=1 ['add_element_conditional@grain_4#call_13']  [bg:11]
+[1555.21s]             -> single candidate, ESSENTIAL: add_element_conditional@grain_4#call_13
+[1555.21s]           QX depth=5  candidates=1 ['add_element@grain_4#call_14']  [bg:11]
+[1555.21s]             -> single candidate, ESSENTIAL: add_element@grain_4#call_14
+[1555.21s]     QX depth=2  candidates=5 ['add_conditional@grain_5#call_15', 'add_conditional@grain_5#call_16', 'add_multiplication_equality@grain_5#call_17', 'add@grain_6#call_18', 'add_max_equality@grain_6#call_19']  [bg:7]
+[1555.22s]   oracle#21 START      bg+c1  (9 groups, 15158 lits) -> solving...
+[1645.57s]   oracle#21 DONE       bg+c1  status=UNKNOWN  infeasible=False  (90.20s, clear=yes)
+[1645.57s]   oracle#22 START      bg+c2  (10 groups, 12638 lits) -> solving...
+[1735.85s]   oracle#22 DONE       bg+c2  status=UNKNOWN  infeasible=False  (90.20s, clear=yes)
+[1735.85s]       neither half suffices -> both contribute, pairwise recurse
+[1735.85s]       QX depth=3  candidates=2 ['add_conditional@grain_5#call_15', 'add_conditional@grain_5#call_16']  [bg:10]
+[1735.85s]   oracle#23 START        bg+c1  (11 groups, 16166 lits) -> solving...
+[1826.14s]   oracle#23 DONE         bg+c1  status=UNKNOWN  infeasible=False  (90.19s, clear=yes)
+[1826.14s]   oracle#24 START        bg+c2  (11 groups, 16166 lits) -> solving...
+[1916.47s]   oracle#24 DONE         bg+c2  status=UNKNOWN  infeasible=False  (90.22s, clear=yes)
+[1916.47s]         neither half suffices -> both contribute, pairwise recurse
+[1916.47s]         QX depth=4  candidates=1 ['add_conditional@grain_5#call_15']  [bg:11]
+[1916.47s]           -> single candidate, ESSENTIAL: add_conditional@grain_5#call_15
+[1916.47s]         QX depth=4  candidates=1 ['add_conditional@grain_5#call_16']  [bg:11]
+[1916.47s]           -> single candidate, ESSENTIAL: add_conditional@grain_5#call_16
+[1916.47s]       QX depth=3  candidates=3 ['add_multiplication_equality@grain_5#call_17', 'add@grain_6#call_18', 'add_max_equality@grain_6#call_19']  [bg:9]
+[1916.47s]   oracle#25 START        bg+c1  (10 groups, 18686 lits) -> solving...
+[2006.74s]   oracle#25 DONE         bg+c1  status=UNKNOWN  infeasible=False  (90.18s, clear=yes)
+[2006.75s]   oracle#26 START        bg+c2  (11 groups, 16166 lits) -> solving...
+[2097.06s]   oracle#26 DONE         bg+c2  status=UNKNOWN  infeasible=False  (90.20s, clear=yes)
+[2097.06s]         neither half suffices -> both contribute, pairwise recurse
+[2097.06s]         QX depth=4  candidates=1 ['add_multiplication_equality@grain_5#call_17']  [bg:11]
+[2097.06s]           -> single candidate, ESSENTIAL: add_multiplication_equality@grain_5#call_17
+[2097.06s]         QX depth=4  candidates=2 ['add@grain_6#call_18', 'add_max_equality@grain_6#call_19']  [bg:10]
+[2097.06s]   oracle#27 START          bg+c1  (11 groups, 19190 lits) -> solving...
+[2187.36s]   oracle#27 DONE           bg+c1  status=UNKNOWN  infeasible=False  (90.18s, clear=yes)
+[2187.36s]   oracle#28 START          bg+c2  (11 groups, 19190 lits) -> solving...
+[2277.66s]   oracle#28 DONE           bg+c2  status=UNKNOWN  infeasible=False  (90.18s, clear=yes)
+[2277.66s]           neither half suffices -> both contribute, pairwise recurse
+[2277.66s]           QX depth=5  candidates=1 ['add@grain_6#call_18']  [bg:11]
+[2277.66s]             -> single candidate, ESSENTIAL: add@grain_6#call_18
+[2277.66s]           QX depth=5  candidates=1 ['add_max_equality@grain_6#call_19']  [bg:11]
+[2277.66s]             -> single candidate, ESSENTIAL: add_max_equality@grain_6#call_19
+[2277.67s] === MINIMAL CONFLICT: 12 of 20 groups ===
+  add @ grain_0 #call_6  ×6
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var')
+  add @ grain_1 #call_7  ×8
+      entities=('agent_count_list',)
+  add_allowed_assignments @ grain_3 #call_10  ×24
+      entities=('schedule_day_active_list',)
+  add_conditional @ grain_4 #call_11  ×2016
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'block_id_var', 'is_secondary_var')
+  add_element_conditional @ grain_4 #call_12  ×2016
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'block_id_var', 'is_secondary_var')
+  add_element_conditional @ grain_4 #call_13  ×2016
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'block_id_var', 'is_secondary_var')
+  add_element @ grain_4 #call_14  ×2016
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'block_id_var', 'is_secondary_var')
+  add_conditional @ grain_5 #call_15  ×3528
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'is_secondary_var', 'schedule_interval_contribution_raw_val', 'schedule_interval_contribution_weighted_val')
+  add_conditional @ grain_5 #call_16  ×3528
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'is_secondary_var', 'schedule_interval_contribution_raw_val', 'schedule_interval_contribution_weighted_val')
+  add_multiplication_equality @ grain_5 #call_17  ×3528
+      entities=('schedule_active', 'schedule_agent_count_var', 'shift_family_var', 'seg1_extended_var', 'seg2_extended_var', 'seg3_extended_var', 'seg4_extended_var', 'combo_id_var', 'seg1_is_secondary_var', 'seg2_is_secondary_var', 'seg3_is_secondary_var', 'seg4_is_secondary_var', 'shift_start_offset_var', 'schedule_day_active_var', 'raw_state_var', 'is_secondary_var', 'schedule_interval_contribution_raw_val', 'schedule_interval_contribution_weighted_val')
+  add @ grain_6 #call_18  ×504
+      entities=('schedule_interval_contribution_list', 'supply_val')
+  add_max_equality @ grain_6 #call_19  ×504
+      entities=('schedule_interval_contribution_list', 'supply_val', 'shortfall_val')
+QuickXplain core status: INFEASIBLE
+[timer] quickxplain reduce_to_core complete: 2278.953s (total 2309.888s)
+[cardinality_hierarchy] ambiguous n:1 parent for 'schedule_id': ['skillgroup_agent_count', 'primary_skill', 'secondary_skill'] -> picked 'skillgroup_agent_count' (most distinct values)
+[cardinality_hierarchy] ambiguous n:1 parent for 'schedule_id': ['skillgroup_agent_count', 'secondary_skill', 'primary_skill'] -> picked 'skillgroup_agent_count' (most distinct values)
+[timer] model_view rebuilt from minimal core: 3.033s (total 2312.922s)
+shape: (504, 7)
++------------------+-----+------+--------+----------------------------+------------+---------------+
+| skill            | day | slot | demand | schedule_interval_contribu | supply_val | shortfall_val |
+| ---              | --- | ---  | ---    | tion...                    | ---        | ---           |
+| str              | i64 | i64  | i64    | ---                        | str        | str           |
+|                  |     |      |        | list[str]                  |            |               |
++==================================================================================================+
+| escalations      | 4   | 19   | 6      | ["var_10704", "var_10705", | var_13584  | var_14088     |
+|                  |     |      |        | ......                     |            |               |
+| online_orders    | 3   | 10   | 72     | ["var_11154", "var_11155", | var_13585  | var_14089     |
+|                  |     |      |        | ......                     |            |               |
+| account_services | 0   | 14   | 52     | ["var_10893", "var_10894", | var_13586  | var_14090     |
+|                  |     |      |        | ......                     |            |               |
+| escalations      | 2   | 14   | 16     | ["var_12582", "var_12583", | var_13587  | var_14091     |
+|                  |     |      |        | ......                     |            |               |
+| floral           | 6   | 8    | 14     | ["var_13248", "var_13249", | var_13588  | var_14092     |
+|                  |     |      |        | "va...                     |            |               |
+| ...              | ... | ...  | ...    | ...                        | ...        | ...           |
+| account_services | 2   | 9    | 18     | ["var_11763", "var_11764", | var_14083  | var_14587     |
+|                  |     |      |        | ......                     |            |               |
+| online_orders    | 4   | 12   | 40     | ["var_11652", "var_11653", | var_14084  | var_14588     |
+|                  |     |      |        | ......                     |            |               |
+| escalations      | 4   | 9    | 12     | ["var_12405", "var_12406", | var_14085  | var_14589     |
+|                  |     |      |        | ......                     |            |               |
+| photo            | 3   | 16   | 12     | ["var_11679", "var_11680", | var_14086  | var_14590     |
+|                  |     |      |        | "va...                     |            |               |
+| photo            | 2   | 9    | 16     | ["var_10173", "var_10174", | var_14087  | var_14591     |
+|                  |     |      |        | "va...                     |            |               |
++------------------+-----+------+--------+----------------------------+------------+---------------+
