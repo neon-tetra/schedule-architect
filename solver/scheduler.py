@@ -81,11 +81,20 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
             .filter((pl.col("slot") >= min_slot_30) & (pl.col("slot") <= max_slot_30))
             .with_columns(slot=pl.col("slot") // 2)
             .group_by(["skill", "day", "slot"])
-            .agg(pl.col("demand").sum()))
+            .agg(pl.col("demand").sum())
+            .select(["skill", "day", "slot", "demand"]))
     _t("intervals filtered")
 
 
     # ==================== 1. schedules: one row per potential agent ====================
+
+    from shift_patterns import DAY_PATTERNS
+    day_patterns = DAY_PATTERNS
+    
+    num_shift_patterns = day_patterns.select("shift_pattern_id").unique().height
+    num_break_patterns = day_patterns.select("break_pattern_id").unique().height
+    num_shift_start_offsets = day_patterns.select("shift_start_offset_id").unique().height
+
     schedules = (roster
         .select("primary_skill", "secondary_skill", "count")
         .rename({"count": "skillgroup_agent_count"})
@@ -95,89 +104,76 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         .sort("primary_skill", "secondary_skill")
         .with_row_index(name="schedule_id")
         .select("primary_skill", "secondary_skill", "skillgroup_agent_count", "schedule_id")
-        .pipe(problem.new_bool_var, "schedule_active")
-        .pipe(problem.new_int_var, "schedule_agent_count_var", lb=0, ub=AGENT_UPPER_BOUND)
-        .pipe(problem.new_int_var, "shift_family_var", lb=0, ub=NUM_CORE_FAMILIES - 1)
-
-        .pipe(problem.new_bool_var, "seg1_extended_var")
-        .pipe(problem.new_bool_var, "seg2_extended_var")
-        .pipe(problem.new_bool_var, "seg3_extended_var")
-        .pipe(problem.new_bool_var, "seg4_extended_var")
-        .pipe(problem.new_int_var, "combo_id_var", lb=0, ub=NUM_COMBOS - 1)
-
-        .pipe(problem.new_bool_var, "seg1_is_secondary_var")
-        .pipe(problem.new_bool_var, "seg2_is_secondary_var")
-        .pipe(problem.new_bool_var, "seg3_is_secondary_var")
-        .pipe(problem.new_bool_var, "seg4_is_secondary_var")
-        .pipe(problem.new_int_var, "shift_start_offset_var", lb=0, ub=MAX_START_OFFSET))
+        .pipe(problem.new_bool_var, "var_schedule_active")
+        .pipe(problem.new_int_var, "var_schedule_agent_count", lb=0, ub=AGENT_UPPER_BOUND)
+        .pipe(problem.new_int_var, "var_shift_pattern", lb=0, ub=num_shift_patterns - 1)
+        .pipe(problem.new_int_var, "var_break_pattern", lb=0, ub=num_break_patterns - 1)
+        .pipe(problem.new_int_var, "var_shift_start_offset", lb=0, ub=num_shift_start_offsets - 1)
+        .select([
+            "schedule_id",
+            "primary_skill",
+            "secondary_skill",
+            "skillgroup_agent_count",
+            "var_schedule_active",
+            "var_schedule_agent_count",
+            "var_shift_pattern",
+            "var_break_pattern",
+            "var_shift_start_offset"]))
     _t("schedules vars created")
-
-
-    (schedules
-        .pipe(problem.add_allowed_assignments, lambda row: (
-            [row["shift_family_var"], row["seg1_extended_var"], row["seg2_extended_var"],
-             row["seg3_extended_var"], row["seg4_extended_var"], row["combo_id_var"]],
-            allowed_combos,
-        )))
 
     (schedules
         .with_columns(pl.col("schedule_active").shift(1).over(["primary_skill", "secondary_skill"])
                         .alias("schedule_active_prev"))
         .filter(pl.col("schedule_active_prev").is_not_null())
-        .pipe(problem.add, lambda row: (row["schedule_active_prev"] >= row["schedule_active"],)))
+        .pipe(problem.add, lambda row: (row["schedule_active_prev"] >= row["schedule_active"],))) #lexicographic
 
+    distinct_shift_patterns = (day_patterns
+        .select(["shift_pattern_id", "break_pattern_id", "shift_start_offset_id"])
+        .unique()
+        .to_list())
     (schedules
-        .with_columns(pl.col("combo_id_var").shift(1).over(["primary_skill", "secondary_skill"])
-                        .alias("combo_id_var_prev"),
-                      pl.col("seg1_is_secondary_var").shift(1).over(["primary_skill", "secondary_skill"])
-                        .alias("seg1_is_secondary_var_prev"),
-                      pl.col("seg2_is_secondary_var").shift(1).over(["primary_skill", "secondary_skill"])
-                        .alias("seg2_is_secondary_var_prev"),
-                      pl.col("seg3_is_secondary_var").shift(1).over(["primary_skill", "secondary_skill"])
-                        .alias("seg3_is_secondary_var_prev"),
-                      pl.col("seg4_is_secondary_var").shift(1).over(["primary_skill", "secondary_skill"])
-                        .alias("seg4_is_secondary_var_prev"),
-                      pl.col("shift_start_offset_var").shift(1).over(["primary_skill", "secondary_skill"])
-                        .alias("shift_start_offset_var_prev"))
-        .filter(pl.col("combo_id_var_prev").is_not_null())
-        .pipe(problem.add, lambda row: (
-            (row["combo_id_var_prev"] * 64 +
-             (row["seg1_is_secondary_var_prev"] * 8 + row["seg2_is_secondary_var_prev"] * 4 +
-              row["seg3_is_secondary_var_prev"] * 2 + row["seg4_is_secondary_var_prev"]) * 4 +
-             row["shift_start_offset_var_prev"]) <=
-            (row["combo_id_var"] * 64 +
-             (row["seg1_is_secondary_var"] * 8 + row["seg2_is_secondary_var"] * 4 +
-              row["seg3_is_secondary_var"] * 2 + row["seg4_is_secondary_var"]) * 4 +
-             row["shift_start_offset_var"]),)))
+        .pipe(problem.add_allowed_assignments, lambda row: (
+            [row["var_shift_pattern"], row["var_break_pattern"], row["var_shift_start_offset"]],
+            distinct_shift_patterns)))
+    _t("schedules allowed assignments applied")
 
-    (schedules
-        .filter(pl.col("secondary_skill").is_null() | (pl.col("secondary_skill") == ""))
-        .pipe(problem.add, lambda row: (row["seg1_is_secondary_var"] == 0,))
-        .pipe(problem.add, lambda row: (row["seg2_is_secondary_var"] == 0,))
-        .pipe(problem.add, lambda row: (row["seg3_is_secondary_var"] == 0,))
-        .pipe(problem.add, lambda row: (row["seg4_is_secondary_var"] == 0,)))
+
+
 
 
     (schedules
         .group_by(["primary_skill", "secondary_skill"])
-        .agg(pl.col("schedule_agent_count_var").alias("agent_count_list"),
+        .agg(pl.col("var_schedule_agent_count").alias("list_agent_count"),
              pl.col("skillgroup_agent_count").first())
-        .pipe(problem.add, lambda row: (sum(row["agent_count_list"]) == row["skillgroup_agent_count"],)))
-
+        .pipe(problem.add, lambda row: (sum(row["list_agent_count"]) == row["skillgroup_agent_count"],)))
 
     (schedules
         .pipe(problem.add_conditional, "add",
-              lambda row: (row["schedule_agent_count_var"] == 0,),
-              lambda row: row["schedule_active"].Not())
+              lambda row: (row["var_schedule_agent_count"] == 0,),
+              lambda row: row["var_schedule_active"].Not())
         .pipe(problem.add_conditional, "add",
-              lambda row: (row["schedule_agent_count_var"] >= 1,),
-              lambda row: row["schedule_active"]))
+              lambda row: (row["var_schedule_agent_count"] >= 1,),
+              lambda row: row["var_schedule_active"]))
     _t("schedule-level constraints applied")
 
     schedules_x_days = (schedules
         .join(pl.DataFrame({"day": list(range(7))}), how="cross")
-        .pipe(problem.new_bool_var, "schedule_day_active_var"))
-    
+        .pipe(problem.new_bool_var, "var_schedule_day_active")
+        .select([
+            "schedule_id"           ,
+            "day"                   ,
+            "primary_skill"         ,
+            "secondary_skill"       ,
+            "skillgroup_agent_count",
+
+            "var_schedule_active"         ,
+            "var_schedule_day_active" ,
+            "var_schedule_agent_count",
+            "var_shift_pattern"       ,
+            "var_break_pattern"       ,
+            "var_shift_start_offset"
+        ]))
+
     valid_workweek_patterns = [[1,1,1,1,1,0,0],
                                [0,1,1,1,1,1,0],
                                [0,0,1,1,1,1,1],
@@ -188,45 +184,63 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
     
     (schedules_x_days
         .group_by("schedule_id")
-        .agg(pl.col("schedule_day_active_var").alias("schedule_day_active_list"))
+        .agg(pl.col("var_schedule_day_active").alias("list_schedule_day_active"))
         .pipe(problem.add_allowed_assignments, lambda row:
-                                                     (row["schedule_day_active_list"],
+                                                     (row["list_schedule_day_active"],
                                                       valid_workweek_patterns)))
     _t("workweek patterns applied")
 
     schedule_day_slot = (schedules_x_days
         .join(pl.DataFrame({"slot": slots_in_scope}), how="cross")
-        .pipe(problem.new_int_var, "raw_state_var", lb=0, ub=4)
-        .pipe(problem.new_int_var, "block_id_var", lb=0, ub=NUM_BLOCKS)
-        .pipe(problem.new_bool_var, "is_secondary_var"))
+        .pipe(problem.new_int_var, "var_raw_state", lb=0, ub=4)
+        .pipe(problem.new_int_var, "var_block_id", lb=0, ub=NUM_BLOCKS)
+        .pipe(problem.new_bool_var, "var_is_secondary")
+        .select([
+            "schedule_id"           ,
+            "day"                   ,
+            "slot"                  ,
+            "primary_skill"         ,
+            "secondary_skill"       ,
+            "skillgroup_agent_count",
+
+            "var_schedule_active"         ,
+            "var_schedule_day_active" ,
+            "var_schedule_agent_count",
+            "var_shift_pattern"       ,
+            "var_break_pattern"       ,
+            "var_shift_start_offset"  ,
+            "var_raw_state"           ,
+            "var_block_id"            ,
+            "var_is_secondary"
+        ]))
     _t("schedule_day_slot vars created")
 
     (schedule_day_slot
         .pipe(problem.add_conditional, "add",
-              lambda row: (row["raw_state_var"] == 0,),
-              lambda row: row["schedule_day_active_var"].Not())
+              lambda row: (row["var_raw_state"] == 0,),
+              lambda row: row["var_schedule_day_active"].Not())
 
         .pipe(problem.add_conditional, "add_element",
-              lambda row: ((row["shift_family_var"] * WORKDAY_LENGTH +
-                           row["slot"] - row["shift_start_offset_var"] -
+              lambda row: ((row["var_shift_family"] * WORKDAY_LENGTH +
+                           row["slot"] - row["var_shift_start_offset"] -
                            EARLIEST_START_TIME_SLOT + PAD),
                            work_state_array,
-                           row["raw_state_var"],),
-              lambda row: row["schedule_day_active_var"])
+                           row["var_raw_state"],),
+              lambda row: row["var_schedule_day_active"])
 
         .pipe(problem.add_conditional, "add_element",
-              lambda row: ((row["combo_id_var"] * WORKDAY_LENGTH +
-                           row["slot"] - row["shift_start_offset_var"] -
+              lambda row: ((row["var_combo_id"] * WORKDAY_LENGTH +
+                           row["slot"] - row["var_shift_start_offset"] -
                            EARLIEST_START_TIME_SLOT + PAD),
                            block_id_array,
-                           row["block_id_var"],),
-              lambda row: row["schedule_day_active_var"])
+                           row["var_block_id"],),
+              lambda row: row["var_schedule_day_active"])
 
         .pipe(problem.add_element, lambda row: (
-              row["block_id_var"],
-              [0, row["seg1_is_secondary_var"], row["seg2_is_secondary_var"],
-               row["seg3_is_secondary_var"], row["seg4_is_secondary_var"]],
-              row["is_secondary_var"],)))
+              row["var_block_id"],
+              [0, row["var_seg1_is_secondary"], row["var_seg2_is_secondary"],
+               row["var_seg3_is_secondary"], row["var_seg4_is_secondary"]],
+              row["var_is_secondary"],)))
     _t("schedule_day_slot constraints applied")
 
     intervals_x_schedules = (intervals.lazy()
@@ -236,40 +250,74 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
                         .then(0)
                         .otherwise(1).alias("skill_offset_flag"))
         .collect()
-        .join(schedule_day_slot.select(["schedule_id", "day", "slot", "raw_state_var", "is_secondary_var"]),
+        .join(schedule_day_slot.select(["schedule_id", "day", "slot", "var_raw_state", "var_is_secondary"]),
               on=["schedule_id", "day", "slot"])
-        .pipe(problem.new_int_var, "schedule_interval_contribution_raw_val", lb=0, ub=SCALED_UB)
-        .pipe(problem.new_int_var, "schedule_interval_contribution_weighted_val", lb=0, ub=SCALED_UB))
+        .pipe(problem.new_int_var, "val_schedule_interval_contribution_raw", lb=0, ub=SCALED_UB)
+        .pipe(problem.new_int_var, "val_schedule_interval_contribution_weighted", lb=0, ub=SCALED_UB)
+        .select([
+            "schedule_id"           ,
+            "day"                   ,
+            "slot"                  ,
+            "skill"                 ,
+            "demand"                ,
+            "primary_skill"         ,
+            "secondary_skill"       ,
+            "skillgroup_agent_count",
+            "skill_offset_flag"     ,
+
+            "var_schedule_active"         ,
+            "var_schedule_day_active" ,
+            "var_schedule_agent_count",
+            "var_shift_pattern"       ,
+            "var_break_pattern"       ,
+            "var_shift_start_offset"  ,
+            "var_raw_state"           ,
+            "var_is_secondary"        ,
+
+            "val_schedule_interval_contribution_raw"     ,
+            "val_schedule_interval_contribution_weighted"
+        ]))
     _t("intervals_x_schedules built (join + vars)")
 
     (intervals_x_schedules
 
         .pipe(problem.add_conditional, "add",
-              lambda row: (row["schedule_interval_contribution_raw_val"] == row["raw_state_var"],),
-              lambda row: row["is_secondary_var"] if row["skill_offset_flag"] else row["is_secondary_var"].Not())
+              lambda row: (row["val_schedule_interval_contribution_raw"] == row["var_raw_state"],),
+              lambda row: row["var_is_secondary"] if row["skill_offset_flag"] else row["var_is_secondary"].Not())
         .pipe(problem.add_conditional, "add",
-              lambda row: (row["schedule_interval_contribution_raw_val"] == 0,),
-              lambda row: row["is_secondary_var"].Not() if row["skill_offset_flag"] else row["is_secondary_var"])
+              lambda row: (row["val_schedule_interval_contribution_raw"] == 0,),
+              lambda row: row["var_is_secondary"].Not() if row["skill_offset_flag"] else row["var_is_secondary"])
         .pipe(problem.add_multiplication_equality,
-              lambda row: (row["schedule_interval_contribution_weighted_val"],
-                           row["schedule_interval_contribution_raw_val"],
-                           row["schedule_agent_count_var"],)))
+              lambda row: (row["val_schedule_interval_contribution_weighted"],
+                           row["val_schedule_interval_contribution_raw"],
+                           row["var_schedule_agent_count"],)))
     _t("contribution constraints applied (skill-split add + multiplication)")
 
     intervals_supply = (intervals_x_schedules
         .group_by(["skill", "day", "slot", "demand"])
-        .agg(pl.col("schedule_interval_contribution_weighted_val")
-               .alias("schedule_interval_contribution_list"))
-        .pipe(problem.new_int_var, "supply_val", lb=0, ub=SCALED_UB)  # 4 = max # of segments per schedule
-        .pipe(problem.add, lambda row: (row["supply_val"] == 
-                                    sum(row["schedule_interval_contribution_list"]),),)
-        .pipe(problem.new_int_var, "shortfall_val", lb=0, ub=lambda row: row["demand"])
-        .pipe(problem.add_max_equality, lambda row: (row["shortfall_val"],
-                                                     row["demand"] - row["supply_val"],
-                                                     0),))
+        .agg(pl.col("val_schedule_interval_contribution_weighted")
+               .alias("list_schedule_interval_contribution"))
+        .pipe(problem.new_int_var, "val_supply", lb=0, ub=SCALED_UB)  # 4 = max # of segments per schedule
+        .pipe(problem.add, lambda row: (row["val_supply"] ==
+                                    sum(row["list_schedule_interval_contribution"]),),)
+        .pipe(problem.new_int_var, "val_shortfall", lb=0, ub=lambda row: row["demand"])
+        .pipe(problem.add_max_equality, lambda row: (row["val_shortfall"],
+                                                     row["demand"] - row["val_supply"],
+                                                     0),)
+        .select([
+            "skill" ,
+            "day"   ,
+            "slot"  ,
+            "demand",
+
+            "val_supply"   ,
+            "val_shortfall",
+
+            "list_schedule_interval_contribution"
+        ]))
     _t("supply/shortfall constraints applied")
 
-    shortfall_vars = [problem.store.get(v) for v in intervals_supply["shortfall_val"]]
+    shortfall_vars = [problem.store.get(v) for v in intervals_supply["val_shortfall"]]
     problem.minimize(sum(shortfall_vars))
 
     import model_view
@@ -297,7 +345,7 @@ def build_and_solve(roster: pl.DataFrame, queues: pl.DataFrame, intervals: pl.Da
         print(resolved_supply)
         resolved_schedules.write_csv("resolved_schedules.csv")
 
-        resolved_supply.drop("schedule_interval_contribution_list").write_csv("resolved_supply.csv")
+        resolved_supply.drop("list_schedule_interval_contribution").write_csv("resolved_supply.csv")
         result = resolved_supply
     else:
         # ---- unhappy path: infeasibility analysis ----
