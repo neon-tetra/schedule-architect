@@ -33,3 +33,6 @@ Thumbs.db
 
 # generated diagnostic dumps (model_view.json, etc.)
 *.json
+
+# VS Code workspace
+schedule-architect.code-workspace

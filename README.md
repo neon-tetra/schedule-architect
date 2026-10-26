@@ -84,69 +84,59 @@ This reflects how I work in real engineering environments — using AI tools to 
 ```
 schedule-architect/
 │
-├── main.py                         # Headless entry point (no agent)
-├── chat.py                         # Chainlit entry point
+├── app.py                          # Chainlit entry point
 ├── requirements.txt
+├── .env.example
+├── test_solver.py                  # Solver smoke test (roster -> Erlang C -> solve)
+├── test_presentation.py            # Presentation smoke test
 │
-├── domain/                         # Core data models (no dependencies)
-│   ├── skill.py
-│   ├── call_environment.py         # QueueProfile
-│   ├── erlang.py                   # SlotMatrix
-│   ├── roster.py                   # Roster, RosterEntry
-│   └── schedule.py                 # ScheduleType, SolveResult
-│
-├── engine/                         # Orchestration layer
-│   ├── commands.py                 # ModelCommand union + command dataclasses
-│   ├── command_result.py           # CommandResult
-│   ├── retrieval.py                # QueryStatus, RetrievalResult, ModelQuery
-│   ├── context.py                  # ScenarioContext
-│   ├── dispatcher.py               # Dispatcher — dispatch() + retrieve()
-│   ├── handler.py                  # Handler
-│   ├── presenter.py                # LLMPresenter (legacy ASCII presenter)
-│   └── solve_result.py             # SolveResult
+├── core/                           # Scenario state and data frames
+│   ├── frames.py                   # Polars frame schemas
+│   ├── scenario_context.py         # ScenarioContext
+│   ├── solve_run.py                # SolveRun
+│   └── scenarios/
+│       └── default.py              # Default scenario definition
 │
 ├── solver/                         # Optimisation layer
 │   ├── erlang.py                   # Erlang C staffing calculations
-│   ├── model_builder.py            # CP-SAT model construction + solve
-│   └── var_registry.py             # Solver variable registry
+│   ├── scheduler.py                # CP-SAT model construction + solve (uses dfor)
+│   ├── shift_patterns.py           # Shift pattern definitions
+│   ├── model_design.md
+│   └── scheduler planning.txt
 │
 ├── agent/                          # LLM agent session layer
-│   ├── session.py                  # AgentSession — full turn lifecycle
-│   ├── tools.py                    # AgentTools — @beta_tool wrappers
-│   ├── prompt_builder.py           # SystemPromptBuilder — static/dynamic sections + caching
-│   └── conversation.py             # ConversationManager — history + trim
+│   ├── agent_session.py            # AgentSession — turn lifecycle
+│   ├── toolkit.py                  # Toolkit — tool wrappers
+│   ├── prompts.py                  # System prompt sections
+│   └── response_parser.py          # Response parsing
 │
 ├── presentation/                   # Presentation layer
-│   └── charts.py                   # ChartBuilder — Plotly figures from RetrievalResult
+│   ├── kpi_chart.py
+│   ├── volume_chart.py
+│   ├── theme.py
+│   └── plotly_sandbox.py
 │
-├── scenarios/
-│   └── default.py                  # Default scenario definition
+├── scratch/                        # Scratch files and experiment output
 │
-└── docs/
-    └── uml/
-        ├── architecture_component.puml
-        ├── domain_classes.puml
-        ├── engine_classes.puml
-        ├── solver_classes.puml
-        ├── agent_classes.puml
-        ├── agent_reasoning_activity.puml
-        └── guided_session_activity.puml
+└── docs/                           # Architecture diagrams (UML / C4)
 ```
 
 ---
 
 ## Getting Started
 
+`dfor` is a required dependency (the CP-SAT model layer used by `solver/`). It is not on PyPI: get it from https://github.com/neon-tetra/dfor and make it importable (e.g. `pip install -e <path-to-dfor>`).
+
 ```bash
 pip install -r requirements.txt
 
-# Headless solve (no agent)
-python main.py
+# Solver smoke test (no agent)
+python test_solver.py
 
 # Conversational agent session
 $env:ANTHROPIC_API_KEY = "your_key_here"   # PowerShell
 # export ANTHROPIC_API_KEY="your_key_here" # bash
-chainlit run chat.py
+chainlit run app.py
 ```
 
 ---
