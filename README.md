@@ -1,166 +1,85 @@
-# schedule-architect
+# Schedule Architect
 
-A conversational workforce planning agent for call centre operations. It introduces the user to a scheduling scenario, guides them through building and optimising a staffing model, and surfaces results as interactive charts — all through natural language.
+A Claude agent that works through call center staffing problems with a user. The user directs changes in plain English; the agent drives an Erlang C demand model and a CP-SAT scheduling model, then interprets the results and suggests what to try next.
 
-Designed architecture-first, built layer by layer.
-
----
-
-## What It Does
-
-Schedule Architect puts the user in the seat of a workforce planner working a real call centre scenario. The agent knows the domain, holds the model state, and helps them understand the tradeoffs.
-
-A typical session looks like this:
-
-> The agent opens with a structured welcome — here's the scenario, here's what we know, here's where to start.
-> The user directs the session: adjust roster headcount, change skill assignments, set service level targets.
-> The agent translates that into a structured model, runs the CP-SAT optimiser, and surfaces the results as charts and commentary directly in the conversation.
-> From there it's a loop — the agent identifies the worst coverage gaps, suggests what to change, the user adjusts, and the model re-solves. Each iteration is visible, reasoned, and grounded in the numbers.
-
-The goal isn't to produce a perfect schedule in one shot. It's to give a workforce planner a genuinely useful thinking partner.
+A work in progress, built layer by layer. The chat interface and the solver each work on their own; I'm in the middle of reconnecting them after a solver rewrite, so **the app does not run end to end yet** (see [Status](#status)).
 
 ---
 
-## Architecture
+## What it does
 
-The system is organised into six layers, designed before implementation and documented as living UML artifacts in `/docs`.
+The app opens on a pre-loaded scenario: a retail call center with six queues (Account Services, Online Orders, Photo, Floral, Bakery, Escalations) and a 34-agent roster with deliberate coverage gaps. The agent walks the user through a first solve, points out where coverage falls short, suggests roster changes, and re-solves to compare runs.
 
-![Component Diagram](docs/architecture_component.png)
+---
 
-| Layer | Responsibility |
+## How it works
+
+![Container diagram](docs/C4_container.png)
+
+Chainlit handles the browser and streams tokens. Each user message starts an agent turn: the agent can call tools to change the roster, run the solver, or check status, and keeps calling the model until it has a final reply. The solver converts queue volumes into per-interval staffing requirements with Erlang C, then builds a CP-SAT model that assigns start times, breaks, work weeks, and skill blocks to minimize shortfall.
+
+| Folder | Role |
 |---|---|
-| **Domain** | Core entities — skills, queue profiles, slot matrices, rosters |
-| **Engine** | Command dispatcher, handler, scenario context, retrieval layer |
-| **Solver** | Erlang C demand derivation and CP-SAT model builder |
-| **Agent** | LLM session layer — prompt assembly, conversation management, tool wrappers |
-| **Presentation** | Chart building — Plotly figures from retrieval results |
-| **Caller** | Entry point — wires context, dispatcher, and agent session into a live Chainlit app |
-
-Full design documents: [`/docs`](./docs)
+| `app.py` | Chainlit hooks: start a session, stream tokens to the browser |
+| `agent/` | Conversation history, prompt assembly, streaming, tool loop, response parsing |
+| `core/` | Scenario state, solve history, shared Polars schemas, the default scenario |
+| `solver/` | Erlang C requirements and the CP-SAT schedule model |
+| `presentation/` | Plotly chart builders |
 
 ---
 
-## AI-Assisted Development
+## Design notes
 
-This project was developed using a hybrid workflow: architecture-first design (UML), followed by iterative implementation using GitHub Copilot and agent-assisted scaffolding. All generated code was reviewed, understood, and integrated deliberately.
+Conversation-management patterns change quickly; these notes describe the choices as built.
 
-This reflects how I work in real engineering environments — using AI tools to accelerate development while maintaining full ownership of architecture, correctness, and system behavior.
+**Staged prompt, ordered for caching.** The session is a guided walkthrough, so the system prompt is assembled as: overview → scenario → final-stage guidance → middle-stage → beginning-stage. The agent always sees where the session is headed, and as the user progresses, finished stages drop off the end. What remains is an unchanged prefix, so it's cached; only a short block of recent-solve context after it changes each turn.
 
----
+**One turn, one loop.** An earlier version used an event queue that executed commands in arrival order; it didn't hold up in practice. The current design is a single loop per user turn: stream a response, and if the model stops to call tools, run them, append the results, and stream again until it finishes. Tradeoff: tools run synchronously inside the async loop, so a long solve blocks the server while it runs. Fine for a demo; a thread offload would fix it.
 
-## MVP Features
+**Named solve history.** `ScenarioContext` holds the current roster and the last five solves. The agent names each run when it calls the solver ("Initial Run", "Add 2 Photo + 2 Floral"), and those names go into the per-turn prompt, so the agent and user can compare runs by name.
 
-- Guided opening — scripted welcome sets the scenario before any API call is made
-- Guardrailed scenario — the user works within a defined call centre model, directing roster changes and targets through natural language
-- Define an agent roster from skill groups and headcounts
-- Derive Erlang C staffing requirements from call volume, AHT, and SLA targets
-- CP-SAT schedule optimisation minimising coverage shortfall across all skills and intervals
-- Solve result surfaced as interactive Plotly charts, mid-conversation, as a side effect of the agent's tool loop
-- `QueryStatus` retrieval — agent orients itself each turn with a single call: roster, cost, and latest solve summary
-- Retrieval / tool / memory architecture following Anthropic's vocabulary — clean separation between state-mutating commands and read-only retrievals
-- Prompt caching — static system prompt prefix cached across turns to minimise token cost
-- Chainlit front end — charts and conversation in one interface
+**Charts as inline tags.** The agent places a `<<chart …>>` tag where a chart belongs in its reply. `ResponseParser` reads the token stream character by character, holds back anything inside `<< >>` (tags can be split across tokens), and passes everything else to the UI immediately. When the reply finishes, the app renders each chart with Chainlit's Plotly element at the position the agent chose. A `<<summary>>` tag works the same way: only the summary is kept in conversation history.
+
+**Model written with dfor.** The CP-SAT model is built with [dfor](https://github.com/neon-tetra/dfor), so variables and constraints are created as Polars pipelines over named data. The model reads like data transformation code, and every constraint carries a name, so infeasibility diagnosis (QuickXplain) reports conflicts in scheduling terms instead of variable indices.
 
 ---
 
-## Roadmap
+## Status
 
-| MVP ✓ | V2 |
-|---|---|
-| Domain entities | Constraint template registry |
-| Command dispatcher + handler | Bespoke constraint authoring via agent |
-| Erlang C derivation | Weighted and conditional shortfall penalties |
-| CP-SAT solve | Coverage ratio and floor constraints |
-| `QueryStatus` retrieval | Parameterizable objective function |
-| Agent session + tool use | Define skills and queue profiles via natural language |
-| Prompt caching | Multi-scenario session management |
-| Guided conversational session | Schedule types and shift templates |
-| Chainlit front end + Plotly charts | Full simulation and schedule evaluation |
+The interface and the solver were built and tested separately, and have not worked together end to end since the solver rewrite.
 
----
+Working on their own: streamed chat, the tool loop, staged and cached prompts, solve history, the response parser, Erlang C demand curves, and the CP-SAT model build and solve.
 
-## Project Structure
+Being reconnected (this is the current work):
+- Linking the rewritten solver back to the app: `solver/scheduler.py` currently imports a shift-pattern helper that `solver/shift_patterns.py` no longer defines, and solver output isn't yet mapped onto `SolveRun`, so solves don't land in session history
+- The `define_roster` tool handler
+- Chart rendering in the conversation; a baseline suite of Plotly visualizations for the agent to draw from is in progress in `presentation/`
 
-```
-schedule-architect/
-│
-├── main.py                         # Headless entry point (no agent)
-├── chat.py                         # Chainlit entry point
-├── requirements.txt
-│
-├── domain/                         # Core data models (no dependencies)
-│   ├── skill.py
-│   ├── call_environment.py         # QueueProfile
-│   ├── erlang.py                   # SlotMatrix
-│   ├── roster.py                   # Roster, RosterEntry
-│   └── schedule.py                 # ScheduleType, SolveResult
-│
-├── engine/                         # Orchestration layer
-│   ├── commands.py                 # ModelCommand union + command dataclasses
-│   ├── command_result.py           # CommandResult
-│   ├── retrieval.py                # QueryStatus, RetrievalResult, ModelQuery
-│   ├── context.py                  # ScenarioContext
-│   ├── dispatcher.py               # Dispatcher — dispatch() + retrieve()
-│   ├── handler.py                  # Handler
-│   ├── presenter.py                # LLMPresenter (legacy ASCII presenter)
-│   └── solve_result.py             # SolveResult
-│
-├── solver/                         # Optimisation layer
-│   ├── erlang.py                   # Erlang C staffing calculations
-│   ├── model_builder.py            # CP-SAT model construction + solve
-│   └── var_registry.py             # Solver variable registry
-│
-├── agent/                          # LLM agent session layer
-│   ├── session.py                  # AgentSession — full turn lifecycle
-│   ├── tools.py                    # AgentTools — @beta_tool wrappers
-│   ├── prompt_builder.py           # SystemPromptBuilder — static/dynamic sections + caching
-│   └── conversation.py             # ConversationManager — history + trim
-│
-├── presentation/                   # Presentation layer
-│   └── charts.py                   # ChartBuilder — Plotly figures from RetrievalResult
-│
-├── scenarios/
-│   └── default.py                  # Default scenario definition
-│
-└── docs/
-    └── uml/
-        ├── architecture_component.puml
-        ├── domain_classes.puml
-        ├── engine_classes.puml
-        ├── solver_classes.puml
-        ├── agent_classes.puml
-        ├── agent_reasoning_activity.puml
-        └── guided_session_activity.puml
-```
+Next: a small library of named, parameterized constraint templates the agent can select and configure at runtime (e.g. *"at least one Photo agent starting at 8am every day"*).
 
 ---
 
-## Getting Started
+## Running it
+
+The full app can't be run yet, for the reasons above. The setup below is for working on the code:
+
+Requires Python 3.12.
 
 ```bash
+git clone https://github.com/neon-tetra/schedule-architect.git
+cd schedule-architect
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-# Headless solve (no agent)
-python main.py
-
-# Conversational agent session
-$env:ANTHROPIC_API_KEY = "your_key_here"   # PowerShell
-# export ANTHROPIC_API_KEY="your_key_here" # bash
-chainlit run chat.py
+pip install git+https://github.com/neon-tetra/dfor
 ```
 
----
+`pytest` runs the smoke tests. Those that need the solver are skipped when it can't be imported.
 
-## V2 Vision
-
-The next major milestone is a **constraint template registry** — a bounded vocabulary of named, parameterizable constraint patterns that the agent can select, configure, and compose at runtime. This moves the system from a guided scenario into a genuinely open workforce planning tool.
-
-Example targets:
-> *"There must be at least one photo agent starting at 8am every day"*
-> *"If escalation coverage drops below 10% of total agents, double the shortfall penalty"*
+Once the integration is finished, the app will run with `chainlit run app.py` after copying `.env.example` to `.env` and adding an `ANTHROPIC_API_KEY`.
 
 ---
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
