@@ -33,3 +33,9 @@ Thumbs.db
 
 # generated diagnostic dumps (model_view.json, etc.)
 *.json
+
+# local scratch files (untracked, kept locally)
+scratch_make_hour_patterns.py
+quickxplain_run2.txt
+solver/scheduler planning.txt
+presentation/plotly_sandbox.py
